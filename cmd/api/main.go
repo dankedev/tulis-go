@@ -17,6 +17,7 @@ import (
 	"github.com/dankedev/kontent/middleware"
 	"github.com/dankedev/kontent/utils/jwt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -34,6 +35,13 @@ func SetupApp() *fiber.App {
 
 	app.Use(recover.New())
 	app.Use(logger.New())
+	
+	// Add CORS middleware
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://localhost:3000, http://127.0.0.1:3000", // Adjust to match your frontend URL (e.g. 5173 for Vite, 3000 for Next.js)
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET, POST, HEAD, PUT, DELETE, PATCH, OPTIONS",
+	}))
 
 	// Health check endpoint
 	app.Get("/health", func(c *fiber.Ctx) error {
