@@ -5,8 +5,6 @@ import (
 	"log"
 
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -14,18 +12,14 @@ var DB *gorm.DB
 
 func ConnectDB() {
 	var err error
-	var dialector gorm.Dialector
-
-	switch AppConfig.DBDriver {
-	case "postgres":
-		dialector = postgres.Open(AppConfig.DatabaseURL)
-	case "mysql":
-		dialector = mysql.Open(AppConfig.DatabaseURL)
-	case "sqlite":
-		dialector = sqlite.Open(AppConfig.DatabaseURL)
-	default:
-		dialector = sqlite.Open("kontent.db")
-	}
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		AppConfig.DBUser,
+		AppConfig.DBPassword,
+		AppConfig.DBHost,
+		AppConfig.DBPort,
+		AppConfig.DBName,
+	)
+	dialector := mysql.Open(dsn)
 
 	DB, err = gorm.Open(dialector, &gorm.Config{})
 	if err != nil {

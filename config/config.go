@@ -10,8 +10,11 @@ import (
 type Config struct {
 	AppEnv         string
 	AppPort        string
-	DatabaseURL    string
-	DBDriver       string // sqlite, postgres, mysql
+	DBHost         string
+	DBPort         string
+	DBUser         string
+	DBPassword     string
+	DBName         string
 	JWTSecret      string
 	JWTExpiryHours int
 }
@@ -24,8 +27,11 @@ func LoadConfig() {
 	AppConfig = &Config{
 		AppEnv:         getEnv("APP_ENV", "development"),
 		AppPort:        getEnv("APP_PORT", "8080"),
-		DatabaseURL:    getEnv("DATABASE_URL", "kontent.db"),
-		DBDriver:       getEnv("DB_DRIVER", "sqlite"),
+		DBHost:         getEnv("DB_HOST", "127.0.0.1"),
+		DBPort:         getEnv("DB_PORT", "3306"),
+		DBUser:         getEnv("DB_USER", "root"),
+		DBPassword:     getEnv("DB_PASSWORD", ""),
+		DBName:         getEnv("DB_NAME", "konten"),
 		JWTSecret:      getEnv("JWT_SECRET", "super-secret-key"),
 		JWTExpiryHours: getEnvInt("JWT_EXPIRY_HOURS", 24),
 	}

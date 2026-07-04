@@ -8,7 +8,7 @@ import (
 )
 
 type Workspace struct {
-	ID        uuid.UUID              `gorm:"type:uuid;primary_key" json:"id"`
+	ID        uuid.UUID              `gorm:"type:char(36);primary_key" json:"id"`
 	CreatedAt time.Time              `json:"created_at"`
 	UpdatedAt time.Time              `json:"updated_at"`
 	DeletedAt gorm.DeletedAt         `gorm:"index" json:"-"`
