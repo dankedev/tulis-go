@@ -21,7 +21,7 @@ func setupTestPostDB(t *testing.T) (*gorm.DB, post.PostService, *post.PostHandle
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	err = db.AutoMigrate(&post.Post{}, &post.PostType{})
+	err = db.AutoMigrate(&post.Post{}, &post.PostType{}, &post.PostRevision{})
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
@@ -57,6 +57,8 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Get("/api/post-types", handler.ListPostTypes)
 	app.Get("/api/post-types/:id", handler.GetPostTypeByID)
 	app.Delete("/api/post-types/:id", handler.DeletePostType)
+	app.Get("/api/posts/:id/revisions", handler.ListRevisions)
+	app.Post("/api/posts/:id/revisions/:revisionId/restore", handler.RestoreRevision)
 
 	var firstPostID string
 	var firstPostSlug string
@@ -328,6 +330,69 @@ func TestPostServiceAndHandler(t *testing.T) {
 		respDel, _ := app.Test(reqDel, -1)
 		if respDel.StatusCode != http.StatusOK {
 			t.Errorf("Expected 200 on deleting CPT, got %d", respDel.StatusCode)
+		}
+	})
+
+	t.Run("Post Revisions auto-save and restore", func(t *testing.T) {
+		// 1. Create a post
+		createReq := post.CreatePostReq{
+			Title:   "Original Title",
+			Content: "Original Content",
+			Status:  "draft",
+		}
+		jsonBytes, _ := json.Marshal(createReq)
+		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		
+		var createRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&createRes)
+		pData := createRes["data"].(map[string]interface{})
+		pID := pData["id"].(string)
+
+		// 2. Update the post to save a new revision
+		updatedTitle := "Updated Title"
+		updateReq := post.UpdatePostReq{
+			Title: &updatedTitle,
+		}
+		jsonBytes, _ = json.Marshal(updateReq)
+		req = httptest.NewRequest("PUT", "/api/posts/"+pID, bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		_, _ = app.Test(req, -1)
+
+		// 3. List revisions -> Should have 2 revisions (1 initial, 1 updated)
+		req = httptest.NewRequest("GET", "/api/posts/"+pID+"/revisions", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 listing revisions, got %d", resp.StatusCode)
+		}
+
+		var listRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&listRes)
+		revisions := listRes["data"].([]interface{})
+		if len(revisions) != 2 {
+			t.Errorf("Expected 2 revisions, got %d", len(revisions))
+		}
+
+		// Revisions are order desc (newest first). The second revision (index 1) is the original state.
+		origRev := revisions[1].(map[string]interface{})
+		origRevID := origRev["id"].(string)
+
+		// 4. Restore the post to the original state
+		req = httptest.NewRequest("POST", "/api/posts/"+pID+"/revisions/"+origRevID+"/restore", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 restoring revision, got %d", resp.StatusCode)
+		}
+
+		// 5. Get the post -> Title should be back to 'Original Title'
+		req = httptest.NewRequest("GET", "/api/posts/"+pID, nil)
+		resp, _ = app.Test(req, -1)
+		var postRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&postRes)
+		postData := postRes["data"].(map[string]interface{})
+		if postData["title"] != "Original Title" {
+			t.Errorf("Expected restored title to be 'Original Title', got '%v'", postData["title"])
 		}
 	})
 }

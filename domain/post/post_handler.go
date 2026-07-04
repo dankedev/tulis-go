@@ -70,12 +70,21 @@ func (h *PostHandler) Update(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", "Invalid post ID", nil)
 	}
 
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
 	var req UpdatePostReq
 	if err := c.BodyParser(&req); err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
 	}
 
-	post, err := h.svc.UpdatePost(c.Context(), id, req)
+	post, err := h.svc.UpdatePost(c.Context(), id, req, authorID)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
@@ -213,4 +222,45 @@ func (h *PostHandler) DeletePostType(c *fiber.Ctx) error {
 	}
 
 	return response.Success(c, nil, "Custom post type deleted successfully")
+}
+
+// Revisions mappings
+func (h *PostHandler) ListRevisions(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid post ID", nil)
+	}
+
+	revisions, err := h.svc.ListRevisions(c.Context(), id)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, revisions, "Post revisions retrieved successfully")
+}
+
+func (h *PostHandler) RestoreRevision(c *fiber.Ctx) error {
+	// Extract author
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	revisionIDStr := c.Params("revisionId")
+	revisionID, err := uuid.Parse(revisionIDStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid revision ID", nil)
+	}
+
+	post, err := h.svc.RestoreRevision(c.Context(), revisionID, authorID)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, post, "Post restored to revision successfully")
 }

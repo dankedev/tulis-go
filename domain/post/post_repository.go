@@ -21,6 +21,11 @@ type PostRepository interface {
 	FindPostTypeBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*PostType, error)
 	ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error)
 	DeletePostType(ctx context.Context, id uuid.UUID) error
+
+	// PostRevision operations
+	CreateRevision(ctx context.Context, revision *PostRevision) error
+	ListRevisions(ctx context.Context, postID uuid.UUID) ([]PostRevision, error)
+	FindRevisionByID(ctx context.Context, id uuid.UUID) (*PostRevision, error)
 }
 
 type postRepository struct {
@@ -117,4 +122,24 @@ func (r *postRepository) ListPostTypes(ctx context.Context, workspaceID uuid.UUI
 
 func (r *postRepository) DeletePostType(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&PostType{}, "id = ?", id).Error
+}
+
+// PostRevision CRUD implementations
+func (r *postRepository) CreateRevision(ctx context.Context, revision *PostRevision) error {
+	return r.db.WithContext(ctx).Create(revision).Error
+}
+
+func (r *postRepository) ListRevisions(ctx context.Context, postID uuid.UUID) ([]PostRevision, error) {
+	var revisions []PostRevision
+	err := r.db.WithContext(ctx).Where("post_id = ?", postID).Order("created_at desc").Find(&revisions).Error
+	return revisions, err
+}
+
+func (r *postRepository) FindRevisionByID(ctx context.Context, id uuid.UUID) (*PostRevision, error) {
+	var rev PostRevision
+	err := r.db.WithContext(ctx).First(&rev, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &rev, nil
 }

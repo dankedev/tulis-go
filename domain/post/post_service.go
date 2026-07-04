@@ -15,13 +15,14 @@ var (
 	ErrPostTypeNotFound  = errors.New("custom post type not found")
 	ErrPostTypeExists    = errors.New("custom post type slug already exists in this workspace")
 	ErrInvalidStatus     = errors.New("invalid status value")
+	ErrRevisionNotFound  = errors.New("revision not found")
 )
 
 type PostService interface {
 	CreatePost(ctx context.Context, req CreatePostReq, authorID, workspaceID uuid.UUID) (*Post, error)
 	GetPostByID(ctx context.Context, id uuid.UUID) (*Post, error)
 	GetPostBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*Post, error)
-	UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePostReq) (*Post, error)
+	UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePostReq, authorID uuid.UUID) (*Post, error)
 	DeletePost(ctx context.Context, id uuid.UUID) error
 	ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, page, perPage int) ([]Post, int64, error)
 
@@ -31,6 +32,10 @@ type PostService interface {
 	GetPostTypeBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*PostType, error)
 	ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error)
 	DeletePostType(ctx context.Context, id uuid.UUID) error
+
+	// Revisions
+	ListRevisions(ctx context.Context, postID uuid.UUID) ([]PostRevision, error)
+	RestoreRevision(ctx context.Context, revisionID uuid.UUID, authorID uuid.UUID) (*Post, error)
 }
 
 type postService struct {
@@ -51,7 +56,6 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		postType = "post"
 	}
 
-	// Validate CPT fields if applicable
 	if postType != "post" && postType != "page" {
 		cpt, err := s.repo.FindPostTypeBySlug(ctx, workspaceID, postType)
 		if err != nil {
@@ -76,7 +80,6 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		slug = helpers.Slugify(req.Title)
 	}
 
-	// Resolve duplicates within workspace
 	originalSlug := slug
 	counter := 1
 	for {
@@ -129,6 +132,18 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		return nil, err
 	}
 
+	// Create initial revision
+	revision := &PostRevision{
+		ID:           uuid.New(),
+		PostID:       post.ID,
+		Title:        post.Title,
+		Content:      post.Content,
+		Excerpt:      post.Excerpt,
+		CustomFields: post.CustomFields,
+		AuthorID:     authorID,
+	}
+	_ = s.repo.CreateRevision(ctx, revision)
+
 	return post, nil
 }
 
@@ -148,7 +163,7 @@ func (s *postService) GetPostBySlug(ctx context.Context, workspaceID uuid.UUID, 
 	return post, nil
 }
 
-func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePostReq) (*Post, error) {
+func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePostReq, authorID uuid.UUID) (*Post, error) {
 	post, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, ErrPostNotFound
@@ -201,7 +216,6 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 	}
 
 	if req.CustomFields != nil {
-		// If postType is a CPT, we validate custom fields as well
 		if postType != "post" && postType != "page" {
 			cpt, err := s.repo.FindPostTypeBySlug(ctx, post.WorkspaceID, postType)
 			if err == nil {
@@ -222,6 +236,18 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 	if err := s.repo.Update(ctx, post); err != nil {
 		return nil, err
 	}
+
+	// Auto-save revision
+	revision := &PostRevision{
+		ID:           uuid.New(),
+		PostID:       post.ID,
+		Title:        post.Title,
+		Content:      post.Content,
+		Excerpt:      post.Excerpt,
+		CustomFields: post.CustomFields,
+		AuthorID:     authorID,
+	}
+	_ = s.repo.CreateRevision(ctx, revision)
 
 	return post, nil
 }
@@ -302,4 +328,50 @@ func (s *postService) DeletePostType(ctx context.Context, id uuid.UUID) error {
 		return ErrPostTypeNotFound
 	}
 	return s.repo.DeletePostType(ctx, id)
+}
+
+// Revisions implementations
+func (s *postService) ListRevisions(ctx context.Context, postID uuid.UUID) ([]PostRevision, error) {
+	// Verify post exists
+	_, err := s.repo.FindByID(ctx, postID)
+	if err != nil {
+		return nil, ErrPostNotFound
+	}
+	return s.repo.ListRevisions(ctx, postID)
+}
+
+func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID, authorID uuid.UUID) (*Post, error) {
+	revision, err := s.repo.FindRevisionByID(ctx, revisionID)
+	if err != nil {
+		return nil, ErrRevisionNotFound
+	}
+
+	post, err := s.repo.FindByID(ctx, revision.PostID)
+	if err != nil {
+		return nil, ErrPostNotFound
+	}
+
+	// Apply revision fields back to the post
+	post.Title = revision.Title
+	post.Content = revision.Content
+	post.Excerpt = revision.Excerpt
+	post.CustomFields = revision.CustomFields
+
+	if err := s.repo.Update(ctx, post); err != nil {
+		return nil, err
+	}
+
+	// Create a new revision representing the restore action
+	newRevision := &PostRevision{
+		ID:           uuid.New(),
+		PostID:       post.ID,
+		Title:        post.Title,
+		Content:      post.Content,
+		Excerpt:      post.Excerpt,
+		CustomFields: post.CustomFields,
+		AuthorID:     authorID,
+	}
+	_ = s.repo.CreateRevision(ctx, newRevision)
+
+	return post, nil
 }
