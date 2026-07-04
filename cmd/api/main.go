@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dankedev/kontent/config"
+	"github.com/dankedev/kontent/domain/post"
 	"github.com/dankedev/kontent/domain/user"
 	"github.com/dankedev/kontent/domain/workspace"
 	"github.com/gofiber/fiber/v2"
@@ -55,6 +56,7 @@ func main() {
 		&user.User{},
 		&workspace.Workspace{},
 		&workspace.WorkspaceMember{},
+		&post.Post{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
