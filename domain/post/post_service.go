@@ -46,6 +46,10 @@ type PostService interface {
 	DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
 	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error)
 	AssignTaxonomiesToPost(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error
+
+	// Public consumption methods
+	ListPublicPosts(ctx context.Context, workspaceID uuid.UUID, postType string, taxonomySlug string, sortBy string, page, perPage int) ([]Post, int64, error)
+	GetPublicPostBySlugOrID(ctx context.Context, workspaceID uuid.UUID, slugOrID string) (*Post, error)
 }
 
 type postService struct {
@@ -495,4 +499,38 @@ func (s *postService) AssignTaxonomiesToPost(ctx context.Context, postID uuid.UU
 		return ErrPostNotFound
 	}
 	return s.repo.AssignTaxonomies(ctx, postID, taxonomyIDs)
+}
+
+func (s *postService) ListPublicPosts(ctx context.Context, workspaceID uuid.UUID, postType string, taxonomySlug string, sortBy string, page, perPage int) ([]Post, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 10
+	}
+	offset := (page - 1) * perPage
+	return s.repo.ListPublic(ctx, workspaceID, postType, taxonomySlug, sortBy, perPage, offset)
+}
+
+func (s *postService) GetPublicPostBySlugOrID(ctx context.Context, workspaceID uuid.UUID, slugOrID string) (*Post, error) {
+	var post *Post
+	var err error
+
+	id, errParse := uuid.Parse(slugOrID)
+	if errParse == nil {
+		post, err = s.repo.FindByID(ctx, id)
+	} else {
+		post, err = s.repo.FindBySlug(ctx, workspaceID, slugOrID)
+	}
+
+	if err != nil || post == nil {
+		return nil, ErrPostNotFound
+	}
+
+	// Double check that post belongs to the tenant and is published
+	if post.WorkspaceID != workspaceID || post.Status != "published" {
+		return nil, ErrPostNotFound
+	}
+
+	return post, nil
 }

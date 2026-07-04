@@ -14,7 +14,10 @@ import (
 	"github.com/dankedev/kontent/domain/post"
 	"github.com/dankedev/kontent/domain/user"
 	"github.com/dankedev/kontent/domain/workspace"
+	"github.com/dankedev/kontent/middleware"
+	"github.com/dankedev/kontent/utils/jwt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
@@ -40,6 +43,103 @@ func SetupApp() *fiber.App {
 			"time":    time.Now().Format(time.RFC3339),
 		})
 	})
+
+	if config.DB != nil {
+		// Initialize Core Services & Handlers
+		jwtSvc := jwt.NewJWTService(config.AppConfig.JWTSecret, time.Duration(config.AppConfig.JWTExpiryHours)*time.Hour)
+		wsRepo := workspace.NewWorkspaceRepository(config.DB)
+		wsSvc := workspace.NewWorkspaceService(wsRepo)
+		wsHandler := workspace.NewWorkspaceHandler(wsSvc)
+
+		userRepo := user.NewUserRepository(config.DB)
+		userSvc := user.NewUserService(userRepo, wsRepo, jwtSvc)
+		userHandler := user.NewAuthHandler(userSvc)
+
+		postRepo := post.NewPostRepository(config.DB)
+		postSvc := post.NewPostService(postRepo)
+		postHandler := post.NewPostHandler(postSvc)
+
+		mediaRepo := media.NewMediaRepository(config.DB)
+		mediaSvc := media.NewMediaService(mediaRepo)
+		mediaHandler := media.NewMediaHandler(mediaSvc)
+
+		// Initialize Public Consumption Handlers
+		publicPostHandler := post.NewPublicHandler(postSvc)
+		publicMediaHandler := media.NewPublicHandler(mediaSvc)
+
+		// Serve static uploads
+		app.Static("/uploads", "./uploads")
+
+		// ----------------------------------------------------
+		// 1. PUBLIC API v1 ROUTING (Rate Limited & Tenant Scoped)
+		// ----------------------------------------------------
+		publicApi := app.Group("/api/v1/public")
+		publicApi.Use(limiter.New(limiter.Config{
+			Max:        60,
+			Expiration: 1 * time.Minute,
+			KeyGenerator: func(c *fiber.Ctx) string {
+				return c.IP()
+			},
+		}))
+		publicApi.Use(middleware.TenantScoping(wsSvc))
+
+		publicApi.Get("/posts", publicPostHandler.ListPosts)
+		publicApi.Get("/posts/:slugOrId", publicPostHandler.GetPost)
+		publicApi.Get("/taxonomies", publicPostHandler.ListTaxonomies)
+		publicApi.Get("/media", publicMediaHandler.ListMedia)
+
+		// ----------------------------------------------------
+		// 2. ADMIN & AUTHENTICATED MANAGEMENT ROUTING
+		// ----------------------------------------------------
+		api := app.Group("/api")
+		api.Post("/register", userHandler.Register)
+		api.Post("/login", userHandler.Login)
+
+		authGroup := api.Group("")
+		authGroup.Use(middleware.AuthGuard(jwtSvc))
+		authGroup.Use(middleware.TenantScoping(wsSvc))
+
+		// User profile
+		authGroup.Get("/me", userHandler.Me)
+		authGroup.Put("/me", userHandler.UpdateProfile)
+		authGroup.Put("/me/password", userHandler.ChangePassword)
+
+		// Workspace CRUD
+		authGroup.Post("/workspaces", wsHandler.Create)
+		authGroup.Get("/workspaces/:id", wsHandler.GetByID)
+		authGroup.Put("/workspaces/:id", wsHandler.Update)
+		authGroup.Delete("/workspaces/:id", wsHandler.Delete)
+		authGroup.Post("/workspaces/:id/members", wsHandler.AddMember)
+
+		// Content CRUD & Custom Post Types (CPT)
+		authGroup.Post("/posts", postHandler.Create)
+		authGroup.Get("/posts", postHandler.List)
+		authGroup.Get("/posts/:id", postHandler.GetByID)
+		authGroup.Put("/posts/:id", postHandler.Update)
+		authGroup.Delete("/posts/:id", postHandler.Delete)
+
+		authGroup.Post("/post-types", postHandler.RegisterPostType)
+		authGroup.Get("/post-types", postHandler.ListPostTypes)
+		authGroup.Get("/post-types/:id", postHandler.GetPostTypeByID)
+		authGroup.Delete("/post-types/:id", postHandler.DeletePostType)
+
+		// Post Revisions
+		authGroup.Get("/posts/:id/revisions", postHandler.ListRevisions)
+		authGroup.Post("/posts/:id/revisions/:revisionId/restore", postHandler.RestoreRevision)
+
+		// Post Taxonomies
+		authGroup.Post("/taxonomies", postHandler.CreateTaxonomy)
+		authGroup.Get("/taxonomies", postHandler.ListTaxonomies)
+		authGroup.Get("/taxonomies/:id", postHandler.GetTaxonomyByID)
+		authGroup.Put("/taxonomies/:id", postHandler.UpdateTaxonomy)
+		authGroup.Delete("/taxonomies/:id", postHandler.DeleteTaxonomy)
+
+		// Media Library Management
+		authGroup.Post("/media/upload", mediaHandler.Upload)
+		authGroup.Get("/media", mediaHandler.List)
+		authGroup.Get("/media/:id", mediaHandler.GetByID)
+		authGroup.Delete("/media/:id", mediaHandler.Delete)
+	}
 
 	return app
 }

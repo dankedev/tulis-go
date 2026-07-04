@@ -14,6 +14,7 @@ type PostRepository interface {
 	Update(ctx context.Context, post *Post) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, limit, offset int) ([]Post, int64, error)
+	ListPublic(ctx context.Context, workspaceID uuid.UUID, postType string, taxonomySlug string, sortBy string, limit, offset int) ([]Post, int64, error)
 
 	// PostType operations
 	CreatePostType(ctx context.Context, cpt *PostType) error
@@ -233,4 +234,49 @@ func (r *postRepository) GetPostTaxonomies(ctx context.Context, postID uuid.UUID
 		Where("post_taxonomies.post_id = ? and taxonomies.deleted_at is null", postID).
 		Find(&taxonomies).Error
 	return taxonomies, err
+}
+
+func (r *postRepository) ListPublic(ctx context.Context, workspaceID uuid.UUID, postType string, taxonomySlug string, sortBy string, limit, offset int) ([]Post, int64, error) {
+	var posts []Post
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies").Where("workspace_id = ? AND status = ?", workspaceID, "published")
+
+	if postType != "" {
+		query = query.Where("post_type = ?", postType)
+	}
+
+	if taxonomySlug != "" {
+		query = query.Joins("join post_taxonomies on post_taxonomies.post_id = posts.id").
+			Joins("join taxonomies on taxonomies.id = post_taxonomies.taxonomy_id").
+			Where("taxonomies.slug = ? AND taxonomies.deleted_at is null", taxonomySlug)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Default sort if none or invalid is provided
+	sortOrder := "published_at desc"
+	allowedSorts := map[string]string{
+		"published_at desc": "published_at desc",
+		"published_at asc":  "published_at asc",
+		"title asc":         "title asc",
+		"title desc":        "title desc",
+		"created_at desc":   "created_at desc",
+		"created_at asc":    "created_at asc",
+	}
+
+	if sortBy != "" {
+		if order, exists := allowedSorts[sortBy]; exists {
+			sortOrder = order
+		}
+	}
+
+	err := query.Order(sortOrder).Limit(limit).Offset(offset).Find(&posts).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return posts, total, nil
 }

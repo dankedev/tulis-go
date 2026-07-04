@@ -34,7 +34,7 @@ func setupTestPostDB(t *testing.T) (*gorm.DB, post.PostService, *post.PostHandle
 }
 
 func TestPostServiceAndHandler(t *testing.T) {
-	_, _, handler := setupTestPostDB(t)
+	_, svc, handler := setupTestPostDB(t)
 
 	app := fiber.New()
 	userID := uuid.New()
@@ -64,6 +64,10 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Get("/api/taxonomies/:id", handler.GetTaxonomyByID)
 	app.Put("/api/taxonomies/:id", handler.UpdateTaxonomy)
 	app.Delete("/api/taxonomies/:id", handler.DeleteTaxonomy)
+
+	pubHandler := post.NewPublicHandler(svc)
+	app.Get("/api/v1/public/posts", pubHandler.ListPosts)
+	app.Get("/api/v1/public/posts/:slugOrId", pubHandler.GetPost)
 
 	var firstPostID string
 	var firstPostSlug string
@@ -478,6 +482,76 @@ func TestPostServiceAndHandler(t *testing.T) {
 		resp, _ = app.Test(req, -1)
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected 200 deleting taxonomy, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Public REST API Headless Consumption", func(t *testing.T) {
+		// 1. Create a published post
+		pubPostReq := post.CreatePostReq{
+			Title:   "Public Announcement",
+			Content: "This is public.",
+			Status:  "published",
+		}
+		jsonBytes, _ := json.Marshal(pubPostReq)
+		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		
+		var pubPostRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&pubPostRes)
+		pubPostData := pubPostRes["data"].(map[string]interface{})
+		pubSlug := pubPostData["slug"].(string)
+
+		// 2. Create a draft post
+		draftPostReq := post.CreatePostReq{
+			Title:   "Draft Internal Info",
+			Content: "This is private draft.",
+			Status:  "draft",
+		}
+		jsonBytes, _ = json.Marshal(draftPostReq)
+		req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		
+		var draftPostRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&draftPostRes)
+		draftPostData := draftPostRes["data"].(map[string]interface{})
+		draftSlug := draftPostData["slug"].(string)
+
+		// 3. Consume via Public Endpoint (GET /api/v1/public/posts)
+		req = httptest.NewRequest("GET", "/api/v1/public/posts", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 consuming public posts, got %d", resp.StatusCode)
+		}
+
+		var publicList map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&publicList)
+		posts := publicList["data"].([]interface{})
+
+		// Draft post should NOT be visible in public endpoint list
+		for _, p := range posts {
+			pMap := p.(map[string]interface{})
+			if pMap["status"] != "published" {
+				t.Errorf("Expected only published posts in public list, got status: %v", pMap["status"])
+			}
+			if pMap["slug"] == draftSlug {
+				t.Errorf("Security violation: draft post slug '%s' found in public list", draftSlug)
+			}
+		}
+
+		// 4. Retrieve published post directly via slug (GET /api/v1/public/posts/:slugOrId)
+		req = httptest.NewRequest("GET", "/api/v1/public/posts/"+pubSlug, nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 fetching public post by slug, got %d", resp.StatusCode)
+		}
+
+		// 5. Retrieve draft post directly via slug (GET /api/v1/public/posts/:slugOrId) -> Should return 404 Not Found
+		req = httptest.NewRequest("GET", "/api/v1/public/posts/"+draftSlug, nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expected 404 fetching draft post via public endpoint, got %d", resp.StatusCode)
 		}
 	})
 }
