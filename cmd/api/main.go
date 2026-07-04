@@ -54,6 +54,7 @@ func main() {
 	err := config.DB.AutoMigrate(
 		&user.User{},
 		&workspace.Workspace{},
+		&workspace.WorkspaceMember{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
