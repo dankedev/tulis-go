@@ -14,6 +14,7 @@ import (
 	"github.com/dankedev/kontent/domain/post"
 	"github.com/dankedev/kontent/domain/user"
 	"github.com/dankedev/kontent/domain/workspace"
+	"github.com/dankedev/kontent/domain/plugin"
 	"github.com/dankedev/kontent/middleware"
 	"github.com/dankedev/kontent/utils/jwt"
 	"github.com/gofiber/fiber/v2"
@@ -70,6 +71,10 @@ func SetupApp() *fiber.App {
 		mediaRepo := media.NewMediaRepository(config.DB)
 		mediaSvc := media.NewMediaService(mediaRepo)
 		mediaHandler := media.NewMediaHandler(mediaSvc)
+
+		pluginRepo := plugin.NewRepository(config.DB)
+		pluginSvc := plugin.NewService(pluginRepo)
+		pluginHandler := plugin.NewHandler(pluginSvc)
 
 		// Initialize Public Consumption Handlers
 		publicPostHandler := post.NewPublicHandler(postSvc)
@@ -156,6 +161,11 @@ func SetupApp() *fiber.App {
 		tenantGroup.Get("/media", mediaHandler.List)
 		tenantGroup.Get("/media/:id", mediaHandler.GetByID)
 		tenantGroup.Delete("/media/:id", mediaHandler.Delete)
+
+		// Plugin Management
+		tenantGroup.Get("/plugins", pluginHandler.List)
+		tenantGroup.Post("/plugins/:id/toggle", pluginHandler.Toggle)
+		tenantGroup.Put("/plugins/:id/settings", pluginHandler.SaveSettings)
 	}
 
 	return app
@@ -180,6 +190,7 @@ func main() {
 		&post.Taxonomy{},
 		&post.PostTaxonomy{},
 		&media.Media{},
+		&plugin.WorkspacePlugin{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
