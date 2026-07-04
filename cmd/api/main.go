@@ -97,48 +97,54 @@ func SetupApp() *fiber.App {
 
 		authGroup := api.Group("")
 		authGroup.Use(middleware.AuthGuard(jwtSvc))
-		authGroup.Use(middleware.TenantScoping(wsSvc))
 
-		// User profile
+		// User profile (only requires authentication)
 		authGroup.Get("/me", userHandler.Me)
 		authGroup.Put("/me", userHandler.UpdateProfile)
 		authGroup.Put("/me/password", userHandler.ChangePassword)
 
-		// Workspace CRUD
+		// Workspace management (only requires authentication)
 		authGroup.Post("/workspaces", wsHandler.Create)
+		authGroup.Get("/workspaces", wsHandler.List)
 		authGroup.Get("/workspaces/:id", wsHandler.GetByID)
 		authGroup.Put("/workspaces/:id", wsHandler.Update)
 		authGroup.Delete("/workspaces/:id", wsHandler.Delete)
-		authGroup.Post("/workspaces/:id/members", wsHandler.AddMember)
+
+		// Tenant-scoped group (requires both authentication and valid workspace context)
+		tenantGroup := authGroup.Group("")
+		tenantGroup.Use(middleware.TenantScoping(wsSvc))
+
+		// Workspace members (requires workspace context)
+		tenantGroup.Post("/workspaces/:id/members", wsHandler.AddMember)
 
 		// Content CRUD & Custom Post Types (CPT)
-		authGroup.Post("/posts", postHandler.Create)
-		authGroup.Get("/posts", postHandler.List)
-		authGroup.Get("/posts/:id", postHandler.GetByID)
-		authGroup.Put("/posts/:id", postHandler.Update)
-		authGroup.Delete("/posts/:id", postHandler.Delete)
+		tenantGroup.Post("/posts", postHandler.Create)
+		tenantGroup.Get("/posts", postHandler.List)
+		tenantGroup.Get("/posts/:id", postHandler.GetByID)
+		tenantGroup.Put("/posts/:id", postHandler.Update)
+		tenantGroup.Delete("/posts/:id", postHandler.Delete)
 
-		authGroup.Post("/post-types", postHandler.RegisterPostType)
-		authGroup.Get("/post-types", postHandler.ListPostTypes)
-		authGroup.Get("/post-types/:id", postHandler.GetPostTypeByID)
-		authGroup.Delete("/post-types/:id", postHandler.DeletePostType)
+		tenantGroup.Post("/post-types", postHandler.RegisterPostType)
+		tenantGroup.Get("/post-types", postHandler.ListPostTypes)
+		tenantGroup.Get("/post-types/:id", postHandler.GetPostTypeByID)
+		tenantGroup.Delete("/post-types/:id", postHandler.DeletePostType)
 
 		// Post Revisions
-		authGroup.Get("/posts/:id/revisions", postHandler.ListRevisions)
-		authGroup.Post("/posts/:id/revisions/:revisionId/restore", postHandler.RestoreRevision)
+		tenantGroup.Get("/posts/:id/revisions", postHandler.ListRevisions)
+		tenantGroup.Post("/posts/:id/revisions/:revisionId/restore", postHandler.RestoreRevision)
 
 		// Post Taxonomies
-		authGroup.Post("/taxonomies", postHandler.CreateTaxonomy)
-		authGroup.Get("/taxonomies", postHandler.ListTaxonomies)
-		authGroup.Get("/taxonomies/:id", postHandler.GetTaxonomyByID)
-		authGroup.Put("/taxonomies/:id", postHandler.UpdateTaxonomy)
-		authGroup.Delete("/taxonomies/:id", postHandler.DeleteTaxonomy)
+		tenantGroup.Post("/taxonomies", postHandler.CreateTaxonomy)
+		tenantGroup.Get("/taxonomies", postHandler.ListTaxonomies)
+		tenantGroup.Get("/taxonomies/:id", postHandler.GetTaxonomyByID)
+		tenantGroup.Put("/taxonomies/:id", postHandler.UpdateTaxonomy)
+		tenantGroup.Delete("/taxonomies/:id", postHandler.DeleteTaxonomy)
 
 		// Media Library Management
-		authGroup.Post("/media/upload", mediaHandler.Upload)
-		authGroup.Get("/media", mediaHandler.List)
-		authGroup.Get("/media/:id", mediaHandler.GetByID)
-		authGroup.Delete("/media/:id", mediaHandler.Delete)
+		tenantGroup.Post("/media/upload", mediaHandler.Upload)
+		tenantGroup.Get("/media", mediaHandler.List)
+		tenantGroup.Get("/media/:id", mediaHandler.GetByID)
+		tenantGroup.Delete("/media/:id", mediaHandler.Delete)
 	}
 
 	return app
