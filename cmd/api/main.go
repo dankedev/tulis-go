@@ -59,6 +59,8 @@ func main() {
 		&post.Post{},
 		&post.PostType{},
 		&post.PostRevision{},
+		&post.Taxonomy{},
+		&post.PostTaxonomy{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)

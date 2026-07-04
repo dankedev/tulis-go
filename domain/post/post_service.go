@@ -16,6 +16,8 @@ var (
 	ErrPostTypeExists    = errors.New("custom post type slug already exists in this workspace")
 	ErrInvalidStatus     = errors.New("invalid status value")
 	ErrRevisionNotFound  = errors.New("revision not found")
+	ErrTaxonomyNotFound  = errors.New("taxonomy not found")
+	ErrTaxonomyExists    = errors.New("taxonomy slug already exists in this workspace for this type")
 )
 
 type PostService interface {
@@ -36,6 +38,14 @@ type PostService interface {
 	// Revisions
 	ListRevisions(ctx context.Context, postID uuid.UUID) ([]PostRevision, error)
 	RestoreRevision(ctx context.Context, revisionID uuid.UUID, authorID uuid.UUID) (*Post, error)
+
+	// Taxonomy
+	CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID) (*Taxonomy, error)
+	GetTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxonomy, error)
+	UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID) (*Taxonomy, error)
+	DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
+	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error)
+	AssignTaxonomiesToPost(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error
 }
 
 type postService struct {
@@ -132,6 +142,17 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		return nil, err
 	}
 
+	// Assign taxonomy IDs if present
+	if len(req.TaxonomyIDs) > 0 {
+		var taxUUIDs []uuid.UUID
+		for _, idStr := range req.TaxonomyIDs {
+			if uid, err := uuid.Parse(idStr); err == nil {
+				taxUUIDs = append(taxUUIDs, uid)
+			}
+		}
+		_ = s.repo.AssignTaxonomies(ctx, post.ID, taxUUIDs)
+	}
+
 	// Create initial revision
 	revision := &PostRevision{
 		ID:           uuid.New(),
@@ -144,7 +165,8 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 	}
 	_ = s.repo.CreateRevision(ctx, revision)
 
-	return post, nil
+	// Fetch fresh post to return preloaded taxonomies
+	return s.repo.FindByID(ctx, post.ID)
 }
 
 func (s *postService) GetPostByID(ctx context.Context, id uuid.UUID) (*Post, error) {
@@ -237,6 +259,17 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 		return nil, err
 	}
 
+	// Update taxonomy IDs if present
+	if req.TaxonomyIDs != nil {
+		var taxUUIDs []uuid.UUID
+		for _, idStr := range *req.TaxonomyIDs {
+			if uid, err := uuid.Parse(idStr); err == nil {
+				taxUUIDs = append(taxUUIDs, uid)
+			}
+		}
+		_ = s.repo.AssignTaxonomies(ctx, post.ID, taxUUIDs)
+	}
+
 	// Auto-save revision
 	revision := &PostRevision{
 		ID:           uuid.New(),
@@ -249,7 +282,7 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 	}
 	_ = s.repo.CreateRevision(ctx, revision)
 
-	return post, nil
+	return s.repo.FindByID(ctx, post.ID)
 }
 
 func (s *postService) DeletePost(ctx context.Context, id uuid.UUID) error {
@@ -332,7 +365,6 @@ func (s *postService) DeletePostType(ctx context.Context, id uuid.UUID) error {
 
 // Revisions implementations
 func (s *postService) ListRevisions(ctx context.Context, postID uuid.UUID) ([]PostRevision, error) {
-	// Verify post exists
 	_, err := s.repo.FindByID(ctx, postID)
 	if err != nil {
 		return nil, ErrPostNotFound
@@ -351,7 +383,6 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 		return nil, ErrPostNotFound
 	}
 
-	// Apply revision fields back to the post
 	post.Title = revision.Title
 	post.Content = revision.Content
 	post.Excerpt = revision.Excerpt
@@ -361,7 +392,6 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 		return nil, err
 	}
 
-	// Create a new revision representing the restore action
 	newRevision := &PostRevision{
 		ID:           uuid.New(),
 		PostID:       post.ID,
@@ -373,5 +403,96 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 	}
 	_ = s.repo.CreateRevision(ctx, newRevision)
 
-	return post, nil
+	return s.repo.FindByID(ctx, post.ID)
+}
+
+// Taxonomy implementations
+func (s *postService) CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID) (*Taxonomy, error) {
+	if name == "" {
+		return nil, errors.New("taxonomy name is required")
+	}
+	if taxType != "category" && taxType != "tag" {
+		return nil, errors.New("taxonomy type must be category or tag")
+	}
+
+	if slug == "" {
+		slug = helpers.Slugify(name)
+	}
+
+	existing, _ := s.repo.FindTaxonomyBySlug(ctx, workspaceID, slug, taxType)
+	if existing != nil {
+		return nil, ErrTaxonomyExists
+	}
+
+	tax := &Taxonomy{
+		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
+		Name:        name,
+		Slug:        slug,
+		Type:        taxType,
+		ParentID:    parentID,
+	}
+
+	if err := s.repo.CreateTaxonomy(ctx, tax); err != nil {
+		return nil, err
+	}
+
+	return tax, nil
+}
+
+func (s *postService) GetTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxonomy, error) {
+	tax, err := s.repo.FindTaxonomyByID(ctx, id)
+	if err != nil {
+		return nil, ErrTaxonomyNotFound
+	}
+	return tax, nil
+}
+
+func (s *postService) UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID) (*Taxonomy, error) {
+	tax, err := s.repo.FindTaxonomyByID(ctx, id)
+	if err != nil {
+		return nil, ErrTaxonomyNotFound
+	}
+
+	if name != "" {
+		tax.Name = name
+	}
+
+	if slug != "" && slug != tax.Slug {
+		existing, _ := s.repo.FindTaxonomyBySlug(ctx, tax.WorkspaceID, slug, tax.Type)
+		if existing != nil {
+			return nil, ErrTaxonomyExists
+		}
+		tax.Slug = slug
+	}
+
+	if parentID != nil {
+		tax.ParentID = parentID
+	}
+
+	if err := s.repo.UpdateTaxonomy(ctx, tax); err != nil {
+		return nil, err
+	}
+
+	return tax, nil
+}
+
+func (s *postService) DeleteTaxonomy(ctx context.Context, id uuid.UUID) error {
+	_, err := s.repo.FindTaxonomyByID(ctx, id)
+	if err != nil {
+		return ErrTaxonomyNotFound
+	}
+	return s.repo.DeleteTaxonomy(ctx, id)
+}
+
+func (s *postService) ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error) {
+	return s.repo.ListTaxonomies(ctx, workspaceID, taxType)
+}
+
+func (s *postService) AssignTaxonomiesToPost(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error {
+	_, err := s.repo.FindByID(ctx, postID)
+	if err != nil {
+		return ErrPostNotFound
+	}
+	return s.repo.AssignTaxonomies(ctx, postID, taxonomyIDs)
 }

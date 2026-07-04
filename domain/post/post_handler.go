@@ -241,7 +241,6 @@ func (h *PostHandler) ListRevisions(c *fiber.Ctx) error {
 }
 
 func (h *PostHandler) RestoreRevision(c *fiber.Ctx) error {
-	// Extract author
 	authUserIDStr := c.Locals("user_id")
 	if authUserIDStr == nil {
 		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
@@ -263,4 +262,117 @@ func (h *PostHandler) RestoreRevision(c *fiber.Ctx) error {
 	}
 
 	return response.Success(c, post, "Post restored to revision successfully")
+}
+
+// Taxonomy mappings
+func (h *PostHandler) CreateTaxonomy(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	var req CreateTaxonomyReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	if req.Name == "" || req.Type == "" {
+		return response.Error(c, "VALIDATION_ERROR", "Name and type are required", nil)
+	}
+
+	var parentID *uuid.UUID
+	if req.ParentID != nil && *req.ParentID != "" {
+		parsedParent, err := uuid.Parse(*req.ParentID)
+		if err == nil {
+			parentID = &parsedParent
+		}
+	}
+
+	tax, err := h.svc.CreateTaxonomy(c.Context(), workspaceID, req.Name, req.Slug, req.Type, parentID)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, tax, "Taxonomy created successfully")
+}
+
+func (h *PostHandler) GetTaxonomyByID(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid taxonomy ID", nil)
+	}
+
+	tax, err := h.svc.GetTaxonomyByID(c.Context(), id)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", err.Error(), nil)
+	}
+
+	return response.Success(c, tax, "Taxonomy retrieved successfully")
+}
+
+func (h *PostHandler) UpdateTaxonomy(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid taxonomy ID", nil)
+	}
+
+	var req UpdateTaxonomyReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	var parentID *uuid.UUID
+	if req.ParentID != nil && *req.ParentID != "" {
+		parsedParent, err := uuid.Parse(*req.ParentID)
+		if err == nil {
+			parentID = &parsedParent
+		}
+	}
+
+	tax, err := h.svc.UpdateTaxonomy(c.Context(), id, req.Name, req.Slug, parentID)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, tax, "Taxonomy updated successfully")
+}
+
+func (h *PostHandler) DeleteTaxonomy(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid taxonomy ID", nil)
+	}
+
+	if err := h.svc.DeleteTaxonomy(c.Context(), id); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "Taxonomy deleted successfully")
+}
+
+func (h *PostHandler) ListTaxonomies(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	taxType := c.Query("type", "")
+
+	taxonomies, err := h.svc.ListTaxonomies(c.Context(), workspaceID, taxType)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, taxonomies, "Taxonomies retrieved successfully")
 }

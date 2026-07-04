@@ -22,4 +22,5 @@ type Post struct {
 	PostType    string         `gorm:"type:varchar(50);default:'post';not null;index" json:"post_type"` // 'post', 'page', CPTs
 	PublishedAt *time.Time     `json:"published_at"`
 	CustomFields map[string]interface{} `gorm:"serializer:json" json:"custom_fields"`
+	Taxonomies   []Taxonomy             `gorm:"many2many:post_taxonomies;" json:"taxonomies"`
 }

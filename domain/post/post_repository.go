@@ -26,6 +26,16 @@ type PostRepository interface {
 	CreateRevision(ctx context.Context, revision *PostRevision) error
 	ListRevisions(ctx context.Context, postID uuid.UUID) ([]PostRevision, error)
 	FindRevisionByID(ctx context.Context, id uuid.UUID) (*PostRevision, error)
+
+	// Taxonomy operations
+	CreateTaxonomy(ctx context.Context, taxonomy *Taxonomy) error
+	FindTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxonomy, error)
+	FindTaxonomyBySlug(ctx context.Context, workspaceID uuid.UUID, slug string, taxType string) (*Taxonomy, error)
+	UpdateTaxonomy(ctx context.Context, taxonomy *Taxonomy) error
+	DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
+	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error)
+	AssignTaxonomies(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error
+	GetPostTaxonomies(ctx context.Context, postID uuid.UUID) ([]Taxonomy, error)
 }
 
 type postRepository struct {
@@ -42,7 +52,7 @@ func (r *postRepository) Create(ctx context.Context, post *Post) error {
 
 func (r *postRepository) FindByID(ctx context.Context, id uuid.UUID) (*Post, error) {
 	var post Post
-	err := r.db.WithContext(ctx).First(&post, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("Taxonomies").First(&post, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +61,7 @@ func (r *postRepository) FindByID(ctx context.Context, id uuid.UUID) (*Post, err
 
 func (r *postRepository) FindBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*Post, error) {
 	var post Post
-	err := r.db.WithContext(ctx).Where("workspace_id = ? AND slug = ?", workspaceID, slug).First(&post).Error
+	err := r.db.WithContext(ctx).Preload("Taxonomies").Where("workspace_id = ? AND slug = ?", workspaceID, slug).First(&post).Error
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +80,7 @@ func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, postTy
 	var posts []Post
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&Post{}).Where("workspace_id = ?", workspaceID)
+	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies").Where("workspace_id = ?", workspaceID)
 
 	if postType != "" {
 		query = query.Where("post_type = ?", postType)
@@ -142,4 +152,85 @@ func (r *postRepository) FindRevisionByID(ctx context.Context, id uuid.UUID) (*P
 		return nil, err
 	}
 	return &rev, nil
+}
+
+// Taxonomy CRUD implementations
+func (r *postRepository) CreateTaxonomy(ctx context.Context, taxonomy *Taxonomy) error {
+	return r.db.WithContext(ctx).Create(taxonomy).Error
+}
+
+func (r *postRepository) FindTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxonomy, error) {
+	var taxonomy Taxonomy
+	err := r.db.WithContext(ctx).First(&taxonomy, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &taxonomy, nil
+}
+
+func (r *postRepository) FindTaxonomyBySlug(ctx context.Context, workspaceID uuid.UUID, slug string, taxType string) (*Taxonomy, error) {
+	var taxonomy Taxonomy
+	err := r.db.WithContext(ctx).Where("workspace_id = ? AND slug = ? AND type = ?", workspaceID, slug, taxType).First(&taxonomy).Error
+	if err != nil {
+		return nil, err
+	}
+	return &taxonomy, nil
+}
+
+func (r *postRepository) UpdateTaxonomy(ctx context.Context, taxonomy *Taxonomy) error {
+	return r.db.WithContext(ctx).Save(taxonomy).Error
+}
+
+func (r *postRepository) DeleteTaxonomy(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Delete taxonomy
+		if err := tx.Delete(&Taxonomy{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+		// Clear pivot entries
+		if err := tx.Delete(&PostTaxonomy{}, "taxonomy_id = ?", id).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *postRepository) ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error) {
+	var taxonomies []Taxonomy
+	query := r.db.WithContext(ctx).Where("workspace_id = ?", workspaceID)
+	if taxType != "" {
+		query = query.Where("type = ?", taxType)
+	}
+	err := query.Find(&taxonomies).Error
+	return taxonomies, err
+}
+
+func (r *postRepository) AssignTaxonomies(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Delete existing entries
+		if err := tx.Where("post_id = ?", postID).Delete(&PostTaxonomy{}).Error; err != nil {
+			return err
+		}
+		// Create new entries
+		for _, taxID := range taxonomyIDs {
+			assoc := &PostTaxonomy{
+				PostID:     postID,
+				TaxonomyID: taxID,
+			}
+			if err := tx.Create(assoc).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *postRepository) GetPostTaxonomies(ctx context.Context, postID uuid.UUID) ([]Taxonomy, error) {
+	var taxonomies []Taxonomy
+	err := r.db.WithContext(ctx).
+		Table("taxonomies").
+		Joins("join post_taxonomies on post_taxonomies.taxonomy_id = taxonomies.id").
+		Where("post_taxonomies.post_id = ? and taxonomies.deleted_at is null", postID).
+		Find(&taxonomies).Error
+	return taxonomies, err
 }

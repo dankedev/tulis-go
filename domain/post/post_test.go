@@ -21,7 +21,7 @@ func setupTestPostDB(t *testing.T) (*gorm.DB, post.PostService, *post.PostHandle
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	err = db.AutoMigrate(&post.Post{}, &post.PostType{}, &post.PostRevision{})
+	err = db.AutoMigrate(&post.Post{}, &post.PostType{}, &post.PostRevision{}, &post.Taxonomy{}, &post.PostTaxonomy{})
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
@@ -59,6 +59,11 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Delete("/api/post-types/:id", handler.DeletePostType)
 	app.Get("/api/posts/:id/revisions", handler.ListRevisions)
 	app.Post("/api/posts/:id/revisions/:revisionId/restore", handler.RestoreRevision)
+	app.Post("/api/taxonomies", handler.CreateTaxonomy)
+	app.Get("/api/taxonomies", handler.ListTaxonomies)
+	app.Get("/api/taxonomies/:id", handler.GetTaxonomyByID)
+	app.Put("/api/taxonomies/:id", handler.UpdateTaxonomy)
+	app.Delete("/api/taxonomies/:id", handler.DeleteTaxonomy)
 
 	var firstPostID string
 	var firstPostSlug string
@@ -393,6 +398,86 @@ func TestPostServiceAndHandler(t *testing.T) {
 		postData := postRes["data"].(map[string]interface{})
 		if postData["title"] != "Original Title" {
 			t.Errorf("Expected restored title to be 'Original Title', got '%v'", postData["title"])
+		}
+	})
+
+	t.Run("Taxonomy Lifecycle and Post Assignment", func(t *testing.T) {
+		// 1. Create a Category taxonomy
+		catReq := post.CreateTaxonomyReq{
+			Name: "Tech News",
+			Slug: "tech-news",
+			Type: "category",
+		}
+		jsonBytes, _ := json.Marshal(catReq)
+		req := httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 creating taxonomy, got %d", resp.StatusCode)
+		}
+
+		var catRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&catRes)
+		catData := catRes["data"].(map[string]interface{})
+		catID := catData["id"].(string)
+
+		// 2. Create a Post and assign this taxonomy
+		postReq := post.CreatePostReq{
+			Title:       "Latest Tech Article",
+			Content:     "Some tech content.",
+			Status:      "draft",
+			TaxonomyIDs: []string{catID},
+		}
+		jsonBytes, _ = json.Marshal(postReq)
+		req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 creating post, got %d", resp.StatusCode)
+		}
+
+		var postRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&postRes)
+		postData := postRes["data"].(map[string]interface{})
+		postID := postData["id"].(string)
+		taxonomies := postData["taxonomies"].([]interface{})
+
+		if len(taxonomies) != 1 {
+			t.Errorf("Expected 1 taxonomy assigned, got %d", len(taxonomies))
+		}
+		firstTax := taxonomies[0].(map[string]interface{})
+		if firstTax["id"] != catID {
+			t.Errorf("Expected assigned taxonomy ID to match catID %s, got %v", catID, firstTax["id"])
+		}
+
+		// 3. Update taxonomy details
+		updateTax := post.UpdateTaxonomyReq{
+			Name: "Tech News (Updated)",
+		}
+		jsonBytes, _ = json.Marshal(updateTax)
+		req = httptest.NewRequest("PUT", "/api/taxonomies/"+catID, bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 updating taxonomy, got %d", resp.StatusCode)
+		}
+
+		// 4. Fetch the post again -> Taxonomy name should reflect update or be retrieved correctly
+		req = httptest.NewRequest("GET", "/api/posts/"+postID, nil)
+		resp, _ = app.Test(req, -1)
+		json.NewDecoder(resp.Body).Decode(&postRes)
+		postData = postRes["data"].(map[string]interface{})
+		taxonomies = postData["taxonomies"].([]interface{})
+		firstTax = taxonomies[0].(map[string]interface{})
+		if firstTax["name"] != "Tech News (Updated)" {
+			t.Errorf("Expected preloaded taxonomy name to be updated, got '%v'", firstTax["name"])
+		}
+
+		// 5. Delete taxonomy
+		req = httptest.NewRequest("DELETE", "/api/taxonomies/"+catID, nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 deleting taxonomy, got %d", resp.StatusCode)
 		}
 	})
 }

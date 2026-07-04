@@ -11,6 +11,7 @@ type CreatePostReq struct {
 	PostType     string                 `json:"post_type"`
 	PublishedAt  *time.Time             `json:"published_at"`
 	CustomFields map[string]interface{} `json:"custom_fields"`
+	TaxonomyIDs  []string               `json:"taxonomy_ids"` // IDs of categories/tags to assign
 }
 
 type UpdatePostReq struct {
@@ -22,6 +23,7 @@ type UpdatePostReq struct {
 	PostType     *string                `json:"post_type"`
 	PublishedAt  *time.Time             `json:"published_at"`
 	CustomFields map[string]interface{} `json:"custom_fields"`
+	TaxonomyIDs  *[]string              `json:"taxonomy_ids"` // optional taxonomy assignment updates
 }
 
 type CreatePostTypeReq struct {
@@ -29,4 +31,17 @@ type CreatePostTypeReq struct {
 	Slug        string              `json:"slug"`
 	Description string              `json:"description"`
 	Fields      []CustomFieldSchema `json:"fields"`
+}
+
+type CreateTaxonomyReq struct {
+	Name     string  `json:"name"`
+	Slug     string  `json:"slug"`
+	Type     string  `json:"type"` // 'category' or 'tag'
+	ParentID *string `json:"parent_id"` // optional parent ID for hierarchical categories
+}
+
+type UpdateTaxonomyReq struct {
+	Name     string  `json:"name"`
+	Slug     string  `json:"slug"`
+	ParentID *string `json:"parent_id"`
 }
