@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dankedev/kontent/config"
+	"github.com/dankedev/kontent/domain/media"
 	"github.com/dankedev/kontent/domain/post"
 	"github.com/dankedev/kontent/domain/user"
 	"github.com/dankedev/kontent/domain/workspace"
@@ -61,6 +62,7 @@ func main() {
 		&post.PostRevision{},
 		&post.Taxonomy{},
 		&post.PostTaxonomy{},
+		&media.Media{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
