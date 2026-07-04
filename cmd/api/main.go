@@ -124,6 +124,9 @@ func SetupApp() *fiber.App {
 
 		// Workspace members (requires workspace context)
 		tenantGroup.Post("/workspaces/:id/members", wsHandler.AddMember)
+		tenantGroup.Get("/workspaces/:id/members", wsHandler.ListMembers)
+		tenantGroup.Put("/workspaces/:id/members/:userId", wsHandler.UpdateMemberRole)
+		tenantGroup.Delete("/workspaces/:id/members/:userId", wsHandler.RemoveMember)
 
 		// Content CRUD & Custom Post Types (CPT)
 		tenantGroup.Post("/posts", postHandler.Create)
