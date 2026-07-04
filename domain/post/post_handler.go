@@ -118,7 +118,6 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
 
-	// Calculate pagination metadata
 	totalPages := int((total + int64(perPage) - 1) / int64(perPage))
 	if totalPages == 0 {
 		totalPages = 1
@@ -133,14 +132,85 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 		HasPrev:    page > 1,
 	}
 
-	// Standard response with custom paginated metadata inside Success is cleanest.
-	// But since fiber context has locals or response library meta is available:
-	// We can pass posts as data, and we can still return a standard response structure.
-	// Let's pass the pagination meta inside the return structure.
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  fiber.StatusOK,
 		"message": "Posts retrieved successfully",
 		"data":    posts,
 		"meta":    meta,
 	})
+}
+
+// Custom Post Type mappings
+func (h *PostHandler) RegisterPostType(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	var req CreatePostTypeReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	if req.Name == "" {
+		return response.Error(c, "VALIDATION_ERROR", "Post type name is required", nil)
+	}
+
+	cpt, err := h.svc.RegisterPostType(c.Context(), workspaceID, req.Name, req.Slug, req.Description, req.Fields)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, cpt, "Custom post type registered successfully")
+}
+
+func (h *PostHandler) GetPostTypeByID(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid post type ID", nil)
+	}
+
+	cpt, err := h.svc.GetPostTypeByID(c.Context(), id)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", err.Error(), nil)
+	}
+
+	return response.Success(c, cpt, "Custom post type retrieved successfully")
+}
+
+func (h *PostHandler) ListPostTypes(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	cpts, err := h.svc.ListPostTypes(c.Context(), workspaceID)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, cpts, "Custom post types retrieved successfully")
+}
+
+func (h *PostHandler) DeletePostType(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid post type ID", nil)
+	}
+
+	if err := h.svc.DeletePostType(c.Context(), id); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "Custom post type deleted successfully")
 }

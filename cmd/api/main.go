@@ -57,6 +57,7 @@ func main() {
 		&workspace.Workspace{},
 		&workspace.WorkspaceMember{},
 		&post.Post{},
+		&post.PostType{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)

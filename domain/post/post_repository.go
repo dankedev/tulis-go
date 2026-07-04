@@ -14,6 +14,13 @@ type PostRepository interface {
 	Update(ctx context.Context, post *Post) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, limit, offset int) ([]Post, int64, error)
+
+	// PostType operations
+	CreatePostType(ctx context.Context, cpt *PostType) error
+	FindPostTypeByID(ctx context.Context, id uuid.UUID) (*PostType, error)
+	FindPostTypeBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*PostType, error)
+	ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error)
+	DeletePostType(ctx context.Context, id uuid.UUID) error
 }
 
 type postRepository struct {
@@ -67,16 +74,47 @@ func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, postTy
 		query = query.Where("status = ?", status)
 	}
 
-	// Count total records before pagination
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// Fetch page records
 	err := query.Order("created_at desc").Limit(limit).Offset(offset).Find(&posts).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return posts, total, nil
+}
+
+// PostType CRUD implementations
+func (r *postRepository) CreatePostType(ctx context.Context, cpt *PostType) error {
+	return r.db.WithContext(ctx).Create(cpt).Error
+}
+
+func (r *postRepository) FindPostTypeByID(ctx context.Context, id uuid.UUID) (*PostType, error) {
+	var cpt PostType
+	err := r.db.WithContext(ctx).First(&cpt, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &cpt, nil
+}
+
+func (r *postRepository) FindPostTypeBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*PostType, error) {
+	var cpt PostType
+	err := r.db.WithContext(ctx).Where("workspace_id = ? AND slug = ?", workspaceID, slug).First(&cpt).Error
+	if err != nil {
+		return nil, err
+	}
+	return &cpt, nil
+}
+
+func (r *postRepository) ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error) {
+	var cpts []PostType
+	err := r.db.WithContext(ctx).Where("workspace_id = ?", workspaceID).Find(&cpts).Error
+	return cpts, err
+}
+
+func (r *postRepository) DeletePostType(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&PostType{}, "id = ?", id).Error
 }

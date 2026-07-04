@@ -21,7 +21,7 @@ func setupTestPostDB(t *testing.T) (*gorm.DB, post.PostService, *post.PostHandle
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	err = db.AutoMigrate(&post.Post{})
+	err = db.AutoMigrate(&post.Post{}, &post.PostType{})
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
@@ -53,6 +53,10 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Get("/api/posts/:id", handler.GetByID)
 	app.Put("/api/posts/:id", handler.Update)
 	app.Delete("/api/posts/:id", handler.Delete)
+	app.Post("/api/post-types", handler.RegisterPostType)
+	app.Get("/api/post-types", handler.ListPostTypes)
+	app.Get("/api/post-types/:id", handler.GetPostTypeByID)
+	app.Delete("/api/post-types/:id", handler.DeletePostType)
 
 	var firstPostID string
 	var firstPostSlug string
@@ -245,6 +249,85 @@ func TestPostServiceAndHandler(t *testing.T) {
 		respGet, _ := app.Test(reqGet, -1)
 		if respGet.StatusCode != http.StatusNotFound {
 			t.Errorf("Expected 404 after deletion, got %d", respGet.StatusCode)
+		}
+	})
+
+	t.Run("Custom Post Type Lifecycle and Custom Fields Validation", func(t *testing.T) {
+		// 1. Register a new custom post type 'book' with a required field 'isbn' and default field 'genre'
+		fields := []post.CustomFieldSchema{
+			{Name: "isbn", Label: "ISBN", Type: "text", Required: true},
+			{Name: "genre", Label: "Genre", Type: "text", Required: false, DefaultVal: "Fiction"},
+		}
+		cptReq := post.CreatePostTypeReq{
+			Name:        "Book CPT",
+			Slug:        "book",
+			Description: "Books library CPT",
+			Fields:      fields,
+		}
+		jsonBytes, _ := json.Marshal(cptReq)
+		req := httptest.NewRequest("POST", "/api/post-types", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected CPT registration status 200, got %d", resp.StatusCode)
+		}
+
+		var cptResult map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&cptResult)
+		cptData := cptResult["data"].(map[string]interface{})
+		cptID := cptData["id"].(string)
+
+		// 2. Try to create a Book post without required 'isbn' field -> Should fail
+		postReqFail := post.CreatePostReq{
+			Title:    "Learn Go in 24 Hours",
+			PostType: "book",
+			Status:   "draft",
+		}
+		jsonBytes, _ = json.Marshal(postReqFail)
+		req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode == http.StatusOK {
+			t.Error("Expected error when missing required custom field 'isbn'")
+		}
+
+		// 3. Create a Book post with valid 'isbn' field -> Should succeed and apply 'genre' default value
+		postReqSuccess := post.CreatePostReq{
+			Title:    "Learn Go in 24 Hours",
+			PostType: "book",
+			Status:   "draft",
+			CustomFields: map[string]interface{}{
+				"isbn": "978-3-16-148410-0",
+			},
+		}
+		jsonBytes, _ = json.Marshal(postReqSuccess)
+		req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", resp.StatusCode)
+		}
+
+		var postResult map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&postResult)
+		postData := postResult["data"].(map[string]interface{})
+		cf := postData["custom_fields"].(map[string]interface{})
+
+		if cf["isbn"] != "978-3-16-148410-0" {
+			t.Errorf("Expected custom field isbn to be populated, got %v", cf["isbn"])
+		}
+		if cf["genre"] != "Fiction" {
+			t.Errorf("Expected default custom field genre to be 'Fiction', got %v", cf["genre"])
+		}
+
+		// 4. Delete the custom post type
+		reqDel := httptest.NewRequest("DELETE", "/api/post-types/"+cptID, nil)
+		respDel, _ := app.Test(reqDel, -1)
+		if respDel.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 on deleting CPT, got %d", respDel.StatusCode)
 		}
 	})
 }
