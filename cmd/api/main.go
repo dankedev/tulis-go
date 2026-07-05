@@ -17,6 +17,7 @@ import (
 	"github.com/dankedev/kontent/domain/plugin"
 	"github.com/dankedev/kontent/middleware"
 	"github.com/dankedev/kontent/utils/jwt"
+	"github.com/dankedev/kontent/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -96,76 +97,29 @@ func SetupApp() *fiber.App {
 		}))
 		publicApi.Use(middleware.TenantScoping(wsSvc))
 
-		publicApi.Get("/posts", publicPostHandler.ListPosts)
-		publicApi.Get("/posts/:slugOrId", publicPostHandler.GetPost)
-		publicApi.Get("/taxonomies", publicPostHandler.ListTaxonomies)
-		publicApi.Get("/media", publicMediaHandler.ListMedia)
-
 		// ----------------------------------------------------
 		// 2. ADMIN & AUTHENTICATED MANAGEMENT ROUTING
 		// ----------------------------------------------------
 		api := app.Group("/api")
-		api.Post("/register", userHandler.Register)
-		api.Post("/login", userHandler.Login)
+		routes.RegisterUserPublicRoutes(api, userHandler)
 
 		authGroup := api.Group("")
 		authGroup.Use(middleware.AuthGuard(jwtSvc))
 
-		// User profile (only requires authentication)
-		authGroup.Get("/me", userHandler.Me)
-		authGroup.Put("/me", userHandler.UpdateProfile)
-		authGroup.Put("/me/password", userHandler.ChangePassword)
-
-		// Workspace management (only requires authentication)
-		authGroup.Post("/workspaces", wsHandler.Create)
-		authGroup.Get("/workspaces", wsHandler.List)
-		authGroup.Get("/workspaces/:id", wsHandler.GetByID)
-		authGroup.Put("/workspaces/:id", wsHandler.Update)
-		authGroup.Delete("/workspaces/:id", wsHandler.Delete)
+		// Register routes that ONLY require auth (no tenant context)
+		routes.RegisterUserAuthRoutes(authGroup, userHandler)
+		routes.RegisterWorkspaceRoutes(authGroup, wsHandler)
 
 		// Tenant-scoped group (requires both authentication and valid workspace context)
 		tenantGroup := authGroup.Group("")
 		tenantGroup.Use(middleware.TenantScoping(wsSvc))
 
-		// Workspace members (requires workspace context)
-		tenantGroup.Post("/workspaces/:id/members", wsHandler.AddMember)
-		tenantGroup.Get("/workspaces/:id/members", wsHandler.ListMembers)
-		tenantGroup.Put("/workspaces/:id/members/:userId", wsHandler.UpdateMemberRole)
-		tenantGroup.Delete("/workspaces/:id/members/:userId", wsHandler.RemoveMember)
-
-		// Content CRUD & Custom Post Types (CPT)
-		tenantGroup.Post("/posts", postHandler.Create)
-		tenantGroup.Get("/posts", postHandler.List)
-		tenantGroup.Get("/posts/:id", postHandler.GetByID)
-		tenantGroup.Put("/posts/:id", postHandler.Update)
-		tenantGroup.Delete("/posts/:id", postHandler.Delete)
-
-		tenantGroup.Post("/post-types", postHandler.RegisterPostType)
-		tenantGroup.Get("/post-types", postHandler.ListPostTypes)
-		tenantGroup.Get("/post-types/:id", postHandler.GetPostTypeByID)
-		tenantGroup.Delete("/post-types/:id", postHandler.DeletePostType)
-
-		// Post Revisions
-		tenantGroup.Get("/posts/:id/revisions", postHandler.ListRevisions)
-		tenantGroup.Post("/posts/:id/revisions/:revisionId/restore", postHandler.RestoreRevision)
-
-		// Post Taxonomies
-		tenantGroup.Post("/taxonomies", postHandler.CreateTaxonomy)
-		tenantGroup.Get("/taxonomies", postHandler.ListTaxonomies)
-		tenantGroup.Get("/taxonomies/:id", postHandler.GetTaxonomyByID)
-		tenantGroup.Put("/taxonomies/:id", postHandler.UpdateTaxonomy)
-		tenantGroup.Delete("/taxonomies/:id", postHandler.DeleteTaxonomy)
-
-		// Media Library Management
-		tenantGroup.Post("/media/upload", mediaHandler.Upload)
-		tenantGroup.Get("/media", mediaHandler.List)
-		tenantGroup.Get("/media/:id", mediaHandler.GetByID)
-		tenantGroup.Delete("/media/:id", mediaHandler.Delete)
-
-		// Plugin Management
-		tenantGroup.Get("/plugins", pluginHandler.List)
-		tenantGroup.Post("/plugins/:id/toggle", pluginHandler.Toggle)
-		tenantGroup.Put("/plugins/:id/settings", pluginHandler.SaveSettings)
+		// Register tenant-scoped routes using domain specific files in routes/
+		routes.RegisterWorkspaceMemberRoutes(tenantGroup, wsHandler)
+		routes.RegisterPostRoutes(publicApi, tenantGroup, postHandler, publicPostHandler)
+		routes.RegisterTaxonomyRoutes(publicApi, tenantGroup, postHandler, publicPostHandler)
+		routes.RegisterMediaRoutes(publicApi, tenantGroup, mediaHandler, publicMediaHandler)
+		routes.RegisterPluginRoutes(tenantGroup, pluginHandler)
 	}
 
 	return app
