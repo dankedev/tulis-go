@@ -41,7 +41,7 @@ func SetupApp() *fiber.App {
 	// Add CORS middleware
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:3000, http://127.0.0.1:3000", // Adjust to match your frontend URL (e.g. 5173 for Vite, 3000 for Next.js)
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-Workspace-ID",
 		AllowMethods: "GET, POST, HEAD, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
