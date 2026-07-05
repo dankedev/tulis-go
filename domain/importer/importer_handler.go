@@ -50,12 +50,24 @@ func (h *ImporterHandler) Upload(c *fiber.Ctx) error {
 	}
 	defer file.Close()
 
-	result, err := h.svc.ImportWXR(c.Context(), workspaceID, authorID, file, fileHeader.Filename)
+	importLog, err := h.svc.ImportWXR(c.Context(), workspaceID, authorID, file, fileHeader.Filename)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
 
-	return response.Success(c, result, "Import completed successfully")
+	return response.Success(c, fiber.Map{
+		"id":                  importLog.ID,
+		"filename":            importLog.Filename,
+		"status":              importLog.Status,
+		"posts_count":         importLog.PostsCount,
+		"pages_count":         importLog.PagesCount,
+		"media_count":         importLog.MediaCount,
+		"tax_count":           importLog.TaxCount,
+		"skipped_count":       importLog.SkippedCount,
+		"error_message":       importLog.Errors,
+		"created_at":          importLog.CreatedAt,
+		"finished_at":         importLog.UpdatedAt,
+	}, "Import completed successfully")
 }
 
 func (h *ImporterHandler) ListLogs(c *fiber.Ctx) error {

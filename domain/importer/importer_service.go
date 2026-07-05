@@ -20,7 +20,7 @@ import (
 )
 
 type ImporterService interface {
-	ImportWXR(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportResult, error)
+	ImportWXR(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportLog, error)
 	GetImportLog(ctx context.Context, id uuid.UUID) (*ImportLog, error)
 	ListImportLogs(ctx context.Context, workspaceID uuid.UUID, page, perPage int) ([]ImportLog, int64, error)
 }
