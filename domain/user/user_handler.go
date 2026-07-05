@@ -1,3 +1,27 @@
+// Package userhandlers Kontent CMS User & Auth API
+//
+//	User and authentication management for Kontent CMS
+//
+//	Schemes: http
+//	BasePath: /api
+//	Version: 1.0.0
+//	License: MIT
+//
+//	Consumes:
+//	- application/json
+//
+//	Produces:
+//	- application/json
+//
+//	Security:
+//	- Bearer
+//
+//	SecurityDefinitions:
+//	Bearer:
+//	     type: apiKey
+//	     name: Authorization
+//	     in: header
+//
 package user
 
 import (
@@ -14,6 +38,16 @@ func NewAuthHandler(userSvc UserService) *AuthHandler {
 	return &AuthHandler{userSvc: userSvc}
 }
 
+// Register godoc
+// @Summary Register a new user with workspace
+// @Description Creates a new user account and automatically creates a personal workspace
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "Registration details"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var req RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -53,6 +87,17 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	return response.Success(c, data, "User registered successfully")
 }
 
+// Login godoc
+// @Summary Login user
+// @Description Authenticates a user and returns a JWT token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login credentials"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -76,6 +121,17 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}, "Login successful")
 }
 
+// Me godoc
+// @Summary Get current authenticated user
+// @Description Returns the profile of the currently authenticated user
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/me [get]
 func (h *AuthHandler) Me(c *fiber.Ctx) error {
 	userIDStr := c.Locals("user_id")
 	if userIDStr == nil {
@@ -101,6 +157,19 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 	}, "User data retrieved successfully")
 }
 
+// GetUserByID godoc
+// @Summary Get user by ID
+// @Description Returns a single user by their UUID
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path string true "User UUID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/users/{id} [get]
 func (h *AuthHandler) GetUserByID(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
@@ -123,6 +192,21 @@ func (h *AuthHandler) GetUserByID(c *fiber.Ctx) error {
 	}, "User retrieved successfully")
 }
 
+// UpdateProfile godoc
+// @Summary Update user profile
+// @Description Updates the name and avatar URL of the authenticated user (own profile only)
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path string true "User UUID"
+// @Param request body UpdateUserRequest true "Profile update fields"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/users/{id} [put]
 func (h *AuthHandler) UpdateProfile(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
@@ -169,6 +253,19 @@ func (h *AuthHandler) UpdateProfile(c *fiber.Ctx) error {
 	}, "User profile updated successfully")
 }
 
+// ChangePassword godoc
+// @Summary Change password
+// @Description Changes the password of the authenticated user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param request body map[string]string true "Old and new password"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/me/password [put]
 func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 	authUserIDStr := c.Locals("user_id")
 	if authUserIDStr == nil {

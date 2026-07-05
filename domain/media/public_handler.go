@@ -1,3 +1,11 @@
+// Package media Kontent CMS Public Media API
+//
+//	Public-facing read-only media endpoints
+//
+//	Schemes: http
+//	BasePath: /api/v1/public
+//	Version: 1.0.0
+//
 package media
 
 import (
@@ -16,6 +24,18 @@ func NewPublicHandler(mediaSvc MediaService) *PublicHandler {
 	return &PublicHandler{mediaSvc: mediaSvc}
 }
 
+// ListMedia godoc
+// @Summary List media
+// @Description Returns a paginated list of media items (public, rate-limited)
+// @Tags Public Media
+// @Accept json
+// @Produce json
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param page query int false "Page number" default(1)
+// @Param per_page query int false "Items per page" default(10)
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/v1/public/media [get]
 func (h *PublicHandler) ListMedia(c *fiber.Ctx) error {
 	wsIDStr := c.Locals("workspace_id")
 	if wsIDStr == nil {

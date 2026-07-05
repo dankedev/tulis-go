@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/dankedev/kontent/docs"
 	"github.com/dankedev/kontent/config"
 	"github.com/dankedev/kontent/domain/media"
 	"github.com/dankedev/kontent/domain/post"
@@ -24,6 +25,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	swagger "github.com/swaggo/fiber-swagger"
 )
 
 func SetupApp() *fiber.App {
@@ -54,6 +56,9 @@ func SetupApp() *fiber.App {
 			"time":    time.Now().Format(time.RFC3339),
 		})
 	})
+
+	// Swagger UI
+	app.Get("/swagger/*", swagger.FiberWrapHandler())
 
 	if config.DB != nil {
 		// Initialize Core Services & Handlers

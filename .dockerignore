@@ -1,0 +1,43 @@
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+kontent-api
+*.exe
+
+# Uploads (mounted at runtime)
+uploads/
+
+# Local env overrides — use .env for overrides
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage.out
+coverage.txt
+
+# Swag generated docs (regenerated via swag init)
+docs/docs.go
+docs/swagger.json
+docs/swagger.yaml
+
+# Temporary files
+tmp/
+*.tmp
+*.log
+
+# Air live reload config (dev only)
+.air.toml

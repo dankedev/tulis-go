@@ -1,3 +1,17 @@
+// Package plugin Kontent CMS Plugin API
+//
+//	Plugin listing, toggle, and settings management
+//
+//	Schemes: http
+//	BasePath: /api
+//	Version: 1.0.0
+//
+//	SecurityDefinitions:
+//	Bearer:
+//	     type: apiKey
+//	     name: Authorization
+//	     in: header
+//
 package plugin
 
 import (
@@ -14,6 +28,18 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
+// List godoc
+// @Summary List workspace plugins
+// @Description Returns all plugins available in the workspace with enabled status and settings
+// @Tags Plugins
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/plugins [get]
 func (h *Handler) List(c *fiber.Ctx) error {
 	workspaceIDStr := c.Get("X-Workspace-ID")
 	if workspaceIDStr == "" {
@@ -33,6 +59,21 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	return response.Success(c, plugins, "Plugins loaded successfully")
 }
 
+// Toggle godoc
+// @Summary Toggle plugin enabled state
+// @Description Enables or disables a plugin for the workspace
+// @Tags Plugins
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param id path string true "Plugin ID"
+// @Param request body TogglePluginReq true "Enabled state"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/plugins/{id}/toggle [post]
 func (h *Handler) Toggle(c *fiber.Ctx) error {
 	pluginID := c.Params("id")
 	if pluginID == "" {
@@ -49,9 +90,7 @@ func (h *Handler) Toggle(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", "Invalid Workspace ID format", nil)
 	}
 
-	var body struct {
-		Enabled bool `json:"enabled"`
-	}
+	var body TogglePluginReq
 	if err := c.BodyParser(&body); err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
 	}
@@ -69,6 +108,21 @@ func (h *Handler) Toggle(c *fiber.Ctx) error {
 	return response.Success(c, nil, "Plugin "+statusMsg+" successfully")
 }
 
+// SaveSettings godoc
+// @Summary Save plugin settings
+// @Description Saves configuration settings for a plugin
+// @Tags Plugins
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param id path string true "Plugin ID"
+// @Param request body SaveSettingsReq true "Plugin settings"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/plugins/{id}/settings [put]
 func (h *Handler) SaveSettings(c *fiber.Ctx) error {
 	pluginID := c.Params("id")
 	if pluginID == "" {
@@ -85,9 +139,7 @@ func (h *Handler) SaveSettings(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", "Invalid Workspace ID format", nil)
 	}
 
-	var body struct {
-		Settings map[string]interface{} `json:"settings"`
-	}
+	var body SaveSettingsReq
 	if err := c.BodyParser(&body); err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
 	}

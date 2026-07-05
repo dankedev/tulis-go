@@ -1,3 +1,17 @@
+// Package media Kontent CMS Media API
+//
+//	Media library upload and management
+//
+//	Schemes: http
+//	BasePath: /api
+//	Version: 1.0.0
+//
+//	SecurityDefinitions:
+//	Bearer:
+//	     type: apiKey
+//	     name: Authorization
+//	     in: header
+//
 package media
 
 import (
@@ -17,6 +31,22 @@ func NewMediaHandler(svc MediaService) *MediaHandler {
 	return &MediaHandler{svc: svc}
 }
 
+// Upload godoc
+// @Summary Upload a media file
+// @Description Uploads a file to the workspace media library (multipart/form-data)
+// @Tags Media
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param file formData file true "Media file"
+// @Param alt_text formData string false "Alt text"
+// @Param caption formData string false "Caption"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/media/upload [post]
 func (h *MediaHandler) Upload(c *fiber.Ctx) error {
 	wsIDStr := c.Locals("workspace_id")
 	if wsIDStr == nil {
@@ -63,6 +93,19 @@ func (h *MediaHandler) Upload(c *fiber.Ctx) error {
 	return response.Success(c, m, "File uploaded successfully")
 }
 
+// GetByID godoc
+// @Summary Get media by ID
+// @Description Returns a single media item metadata by its UUID
+// @Tags Media
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path string true "Media UUID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/media/{id} [get]
 func (h *MediaHandler) GetByID(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
@@ -78,6 +121,19 @@ func (h *MediaHandler) GetByID(c *fiber.Ctx) error {
 	return response.Success(c, m, "Media metadata retrieved successfully")
 }
 
+// Delete godoc
+// @Summary Delete a media item
+// @Description Permanently deletes a media item and its file by UUID
+// @Tags Media
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path string true "Media UUID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/media/{id} [delete]
 func (h *MediaHandler) Delete(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
@@ -92,6 +148,20 @@ func (h *MediaHandler) Delete(c *fiber.Ctx) error {
 	return response.Success(c, nil, "Media deleted successfully")
 }
 
+// List godoc
+// @Summary List media library
+// @Description Returns a paginated list of media items in the workspace
+// @Tags Media
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param page query int false "Page number" default(1)
+// @Param per_page query int false "Items per page" default(10)
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/media [get]
 func (h *MediaHandler) List(c *fiber.Ctx) error {
 	wsIDStr := c.Locals("workspace_id")
 	if wsIDStr == nil {

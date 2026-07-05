@@ -1,3 +1,17 @@
+// Package importer Kontent CMS Importer API
+//
+//	WordPress WXR import management
+//
+//	Schemes: http
+//	BasePath: /api
+//	Version: 1.0.0
+//
+//	SecurityDefinitions:
+//	Bearer:
+//	     type: apiKey
+//	     name: Authorization
+//	     in: header
+//
 package importer
 
 import (
@@ -16,6 +30,20 @@ func NewImporterHandler(svc ImporterService) *ImporterHandler {
 	return &ImporterHandler{svc: svc}
 }
 
+// Upload godoc
+// @Summary Upload WordPress WXR file
+// @Description Imports a WordPress WXR (XML) file, creating posts, media, and taxonomies
+// @Tags Importer
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param file formData file true "WXR file (.xml)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/plugins/importer/upload [post]
 func (h *ImporterHandler) Upload(c *fiber.Ctx) error {
 	wsIDStr := c.Locals("workspace_id")
 	if wsIDStr == nil {
@@ -56,20 +84,34 @@ func (h *ImporterHandler) Upload(c *fiber.Ctx) error {
 	}
 
 	return response.Success(c, fiber.Map{
-		"id":                  importLog.ID,
-		"filename":            importLog.Filename,
-		"status":              importLog.Status,
-		"posts_count":         importLog.PostsCount,
-		"pages_count":         importLog.PagesCount,
-		"media_count":         importLog.MediaCount,
-		"tax_count":           importLog.TaxCount,
-		"skipped_count":       importLog.SkippedCount,
-		"error_message":       importLog.Errors,
-		"created_at":          importLog.CreatedAt,
-		"finished_at":         importLog.UpdatedAt,
+		"id":            importLog.ID,
+		"filename":      importLog.Filename,
+		"status":        importLog.Status,
+		"posts_count":   importLog.PostsCount,
+		"pages_count":   importLog.PagesCount,
+		"media_count":   importLog.MediaCount,
+		"tax_count":     importLog.TaxCount,
+		"skipped_count": importLog.SkippedCount,
+		"error_message": importLog.Errors,
+		"created_at":    importLog.CreatedAt,
+		"finished_at":   importLog.UpdatedAt,
 	}, "Import completed successfully")
 }
 
+// ListLogs godoc
+// @Summary List import logs
+// @Description Returns a paginated list of WXR import logs for the workspace
+// @Tags Importer
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param page query int false "Page number" default(1)
+// @Param per_page query int false "Items per page" default(10)
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/plugins/importer/logs [get]
 func (h *ImporterHandler) ListLogs(c *fiber.Ctx) error {
 	wsIDStr := c.Locals("workspace_id")
 	if wsIDStr == nil {
@@ -110,6 +152,19 @@ func (h *ImporterHandler) ListLogs(c *fiber.Ctx) error {
 	})
 }
 
+// GetLog godoc
+// @Summary Get import log by ID
+// @Description Returns a single import log by its UUID
+// @Tags Importer
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path string true "Import log UUID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/plugins/importer/logs/{id} [get]
 func (h *ImporterHandler) GetLog(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
