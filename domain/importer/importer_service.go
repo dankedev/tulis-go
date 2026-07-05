@@ -60,7 +60,7 @@ type importSession struct {
 	log        *ImportLog
 }
 
-func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportResult, error) {
+func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportLog, error) {
 	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -79,6 +79,7 @@ func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID u
 		ID:          uuid.New(),
 		WorkspaceID: workspaceID,
 		AuthorID:    authorID,
+		Filename:    filename,
 		Status:      "running",
 	}
 	if err := s.db.WithContext(ctx).Create(log).Error; err != nil {
@@ -122,7 +123,7 @@ func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID u
 
 	s.db.WithContext(ctx).Save(session.log)
 
-	return &session.result, nil
+	return session.log, nil
 }
 
 func (s *importerService) importTaxonomies(ctx context.Context, ch WXRChannel, session *importSession) error {

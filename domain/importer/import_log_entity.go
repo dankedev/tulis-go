@@ -14,6 +14,7 @@ type ImportLog struct {
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 	WorkspaceID  uuid.UUID      `gorm:"type:char(36);not null;index" json:"workspace_id"`
 	AuthorID     uuid.UUID      `gorm:"type:char(36);not null" json:"author_id"`
+	Filename     string         `gorm:"type:varchar(500)" json:"filename"`
 	Status       string         `gorm:"type:varchar(50);default:'running'" json:"status"`
 	PostsCount   int            `json:"posts_count"`
 	PagesCount   int            `json:"pages_count"`
