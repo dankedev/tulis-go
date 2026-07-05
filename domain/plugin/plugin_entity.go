@@ -66,4 +66,11 @@ var AvailablePlugins = []PluginManifest{
 			"min_word_count": {Type: "number", Label: "Minimum Word Count", Required: false, Default: 300},
 		},
 	},
+	{
+		ID:          "wordpress-import",
+		Name:        "WordPress XML Import",
+		Description: "Import posts, pages, categories, tags, and media from a WordPress WXR XML export file.",
+		Version:     "1.0.0",
+		SettingsSchema: map[string]FieldSchema{},
+	},
 }

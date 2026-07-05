@@ -15,6 +15,7 @@ import (
 	"github.com/dankedev/kontent/domain/user"
 	"github.com/dankedev/kontent/domain/workspace"
 	"github.com/dankedev/kontent/domain/plugin"
+	"github.com/dankedev/kontent/domain/importer"
 	"github.com/dankedev/kontent/middleware"
 	"github.com/dankedev/kontent/utils/jwt"
 	"github.com/dankedev/kontent/routes"
@@ -77,6 +78,9 @@ func SetupApp() *fiber.App {
 		pluginSvc := plugin.NewService(pluginRepo)
 		pluginHandler := plugin.NewHandler(pluginSvc)
 
+		importerSvc := importer.NewImporterService(config.DB, mediaSvc, postRepo, mediaRepo)
+		importerHandler := importer.NewImporterHandler(importerSvc)
+
 		// Initialize Public Consumption Handlers
 		publicPostHandler := post.NewPublicHandler(postSvc)
 		publicMediaHandler := media.NewPublicHandler(mediaSvc)
@@ -120,6 +124,7 @@ func SetupApp() *fiber.App {
 		routes.RegisterTaxonomyRoutes(publicApi, tenantGroup, postHandler, publicPostHandler)
 		routes.RegisterMediaRoutes(publicApi, tenantGroup, mediaHandler, publicMediaHandler)
 		routes.RegisterPluginRoutes(tenantGroup, pluginHandler)
+		routes.RegisterImporterRoutes(tenantGroup, importerHandler)
 	}
 
 	return app
@@ -145,6 +150,7 @@ func main() {
 		&post.PostTaxonomy{},
 		&media.Media{},
 		&plugin.WorkspacePlugin{},
+		&importer.ImportLog{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
