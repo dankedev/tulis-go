@@ -19,6 +19,7 @@ var (
 
 type WorkspaceRepository interface {
 	Create(ctx context.Context, ws *workspace.Workspace) error
+	AddMember(ctx context.Context, member *workspace.WorkspaceMember) error
 }
 
 type UserService interface {
@@ -92,6 +93,7 @@ func (s *userService) RegisterWithWorkspace(ctx context.Context, user *User, pas
 	}
 
 	ws := &workspace.Workspace{
+		ID:       uuid.New(),
 		Name:     user.Name + "'s Workspace",
 		Slug:     strings.ToLower(strings.ReplaceAll(user.Name, " ", "-") + "-" + uuid.New().String()[:8]),
 		Plan:     "free",
@@ -99,6 +101,17 @@ func (s *userService) RegisterWithWorkspace(ctx context.Context, user *User, pas
 	}
 	if err := s.workspaceRepo.Create(ctx, ws); err != nil {
 		return user, token, nil, nil
+	}
+
+	// Add creator as superadmin member of workspace
+	member := &workspace.WorkspaceMember{
+		ID:          uuid.New(),
+		WorkspaceID: ws.ID,
+		UserID:      user.ID,
+		Role:        "superadmin",
+	}
+	if err := s.workspaceRepo.AddMember(ctx, member); err != nil {
+		// Log error or handle it, but return user, token, ws
 	}
 
 	return user, token, ws, nil

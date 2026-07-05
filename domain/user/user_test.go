@@ -28,6 +28,10 @@ func (m *mockWorkspaceRepo) Create(ctx context.Context, ws *workspace.Workspace)
 	return m.db.WithContext(ctx).Create(ws).Error
 }
 
+func (m *mockWorkspaceRepo) AddMember(ctx context.Context, member *workspace.WorkspaceMember) error {
+	return nil
+}
+
 func setupTestDB(t *testing.T) (*gorm.DB, UserService, *AuthHandler, jwt.JWTService) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

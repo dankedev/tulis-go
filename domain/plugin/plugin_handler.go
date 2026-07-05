@@ -17,48 +17,48 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) List(c *fiber.Ctx) error {
 	workspaceIDStr := c.Get("X-Workspace-ID")
 	if workspaceIDStr == "" {
-		return response.Error(c, fiber.StatusBadRequest, "X-Workspace-ID header is required", nil)
+		return response.Error(c, "BAD_REQUEST", "X-Workspace-ID header is required", nil)
 	}
 
 	workspaceID, err := uuid.Parse(workspaceIDStr)
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "Invalid Workspace ID format", nil)
+		return response.Error(c, "BAD_REQUEST", "Invalid Workspace ID format", nil)
 	}
 
 	plugins, err := h.service.ListPlugins(c.UserContext(), workspaceID)
 	if err != nil {
-		return response.Error(c, fiber.StatusInternalServerError, err.Error(), nil)
+		return response.Error(c, "INTERNAL_ERROR", err.Error(), nil)
 	}
 
-	return response.Success(c, fiber.StatusOK, "Plugins loaded successfully", plugins)
+	return response.Success(c, plugins, "Plugins loaded successfully")
 }
 
 func (h *Handler) Toggle(c *fiber.Ctx) error {
 	pluginID := c.Params("id")
 	if pluginID == "" {
-		return response.Error(c, fiber.StatusBadRequest, "Plugin ID is required", nil)
+		return response.Error(c, "BAD_REQUEST", "Plugin ID is required", nil)
 	}
 
 	workspaceIDStr := c.Get("X-Workspace-ID")
 	if workspaceIDStr == "" {
-		return response.Error(c, fiber.StatusBadRequest, "X-Workspace-ID header is required", nil)
+		return response.Error(c, "BAD_REQUEST", "X-Workspace-ID header is required", nil)
 	}
 
 	workspaceID, err := uuid.Parse(workspaceIDStr)
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "Invalid Workspace ID format", nil)
+		return response.Error(c, "BAD_REQUEST", "Invalid Workspace ID format", nil)
 	}
 
 	var body struct {
 		Enabled bool `json:"enabled"`
 	}
 	if err := c.BodyParser(&body); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "Invalid request body", nil)
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
 	}
 
 	err = h.service.TogglePlugin(c.UserContext(), workspaceID, pluginID, body.Enabled)
 	if err != nil {
-		return response.Error(c, fiber.StatusInternalServerError, err.Error(), nil)
+		return response.Error(c, "INTERNAL_ERROR", err.Error(), nil)
 	}
 
 	statusMsg := "disabled"
@@ -66,36 +66,36 @@ func (h *Handler) Toggle(c *fiber.Ctx) error {
 		statusMsg = "enabled"
 	}
 
-	return response.Success(c, fiber.StatusOK, "Plugin "+statusMsg+" successfully", nil)
+	return response.Success(c, nil, "Plugin "+statusMsg+" successfully")
 }
 
 func (h *Handler) SaveSettings(c *fiber.Ctx) error {
 	pluginID := c.Params("id")
 	if pluginID == "" {
-		return response.Error(c, fiber.StatusBadRequest, "Plugin ID is required", nil)
+		return response.Error(c, "BAD_REQUEST", "Plugin ID is required", nil)
 	}
 
 	workspaceIDStr := c.Get("X-Workspace-ID")
 	if workspaceIDStr == "" {
-		return response.Error(c, fiber.StatusBadRequest, "X-Workspace-ID header is required", nil)
+		return response.Error(c, "BAD_REQUEST", "X-Workspace-ID header is required", nil)
 	}
 
 	workspaceID, err := uuid.Parse(workspaceIDStr)
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "Invalid Workspace ID format", nil)
+		return response.Error(c, "BAD_REQUEST", "Invalid Workspace ID format", nil)
 	}
 
 	var body struct {
 		Settings map[string]interface{} `json:"settings"`
 	}
 	if err := c.BodyParser(&body); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, "Invalid request body", nil)
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
 	}
 
 	err = h.service.SaveSettings(c.UserContext(), workspaceID, pluginID, body.Settings)
 	if err != nil {
-		return response.Error(c, fiber.StatusInternalServerError, err.Error(), nil)
+		return response.Error(c, "INTERNAL_ERROR", err.Error(), nil)
 	}
 
-	return response.Success(c, fiber.StatusOK, "Plugin settings saved successfully", nil)
+	return response.Success(c, nil, "Plugin settings saved successfully")
 }
