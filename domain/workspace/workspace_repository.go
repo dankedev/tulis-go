@@ -82,7 +82,11 @@ func (r *workspaceRepository) ListByUser(ctx context.Context, userID uuid.UUID) 
 }
 
 func (r *workspaceRepository) AddMember(ctx context.Context, member *WorkspaceMember) error {
-	return r.db.WithContext(ctx).Create(member).Error
+	err := r.db.WithContext(ctx).Create(member).Error
+	if err == nil {
+		member.UserIDAlias = member.UserID
+	}
+	return err
 }
 
 func (r *workspaceRepository) GetMember(ctx context.Context, workspaceID, userID uuid.UUID) (*WorkspaceMember, error) {
@@ -91,11 +95,30 @@ func (r *workspaceRepository) GetMember(ctx context.Context, workspaceID, userID
 	if err != nil {
 		return nil, err
 	}
+	member.UserIDAlias = member.UserID
+
+	type DbUser struct {
+		ID    uuid.UUID
+		Name  string
+		Email string
+	}
+	var u DbUser
+	if err := r.db.WithContext(ctx).Table("users").Where("id = ?", member.UserID).First(&u).Error; err == nil {
+		member.User = &UserDetail{
+			ID:    u.ID,
+			Name:  u.Name,
+			Email: u.Email,
+		}
+	}
 	return &member, nil
 }
 
 func (r *workspaceRepository) UpdateMember(ctx context.Context, member *WorkspaceMember) error {
-	return r.db.WithContext(ctx).Save(member).Error
+	err := r.db.WithContext(ctx).Save(member).Error
+	if err == nil {
+		member.UserIDAlias = member.UserID
+	}
+	return err
 }
 
 func (r *workspaceRepository) RemoveMember(ctx context.Context, workspaceID, userID uuid.UUID) error {
@@ -105,5 +128,40 @@ func (r *workspaceRepository) RemoveMember(ctx context.Context, workspaceID, use
 func (r *workspaceRepository) ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error) {
 	var members []WorkspaceMember
 	err := r.db.WithContext(ctx).Where("workspace_id = ?", workspaceID).Find(&members).Error
-	return members, err
+	if err != nil {
+		return nil, err
+	}
+
+	if len(members) > 0 {
+		var userIDs []uuid.UUID
+		for _, m := range members {
+			userIDs = append(userIDs, m.UserID)
+		}
+
+		type DbUser struct {
+			ID    uuid.UUID
+			Name  string
+			Email string
+		}
+		var dbUsers []DbUser
+		if err := r.db.WithContext(ctx).Table("users").Where("id IN ?", userIDs).Find(&dbUsers).Error; err == nil {
+			userMap := make(map[uuid.UUID]DbUser)
+			for _, u := range dbUsers {
+				userMap[u.ID] = u
+			}
+
+			for i := range members {
+				members[i].UserIDAlias = members[i].UserID
+				if u, ok := userMap[members[i].UserID]; ok {
+					members[i].User = &UserDetail{
+						ID:    u.ID,
+						Name:  u.Name,
+						Email: u.Email,
+					}
+				}
+			}
+		}
+	}
+
+	return members, nil
 }
