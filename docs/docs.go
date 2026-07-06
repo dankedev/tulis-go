@@ -1520,7 +1520,7 @@ const docTemplate = `{
         },
         "/api/register": {
             "post": {
-                "description": "Creates a new user account and automatically creates a personal workspace",
+                "description": "Creates a new user account. Registration is disabled when ALLOW_REGISTRATION=false. When WORKSPACE_RESTRICTED=false (default), a personal workspace is auto-created. When WORKSPACE_RESTRICTED=true, the user must be assigned to an existing workspace by an admin.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1530,7 +1530,7 @@ const docTemplate = `{
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Register a new user with workspace",
+                "summary": "Register a new user",
                 "parameters": [
                     {
                         "description": "Registration details",

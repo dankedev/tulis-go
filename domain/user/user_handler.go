@@ -25,6 +25,8 @@
 package user
 
 import (
+	"github.com/dankedev/kontent/config"
+	"github.com/dankedev/kontent/domain/workspace"
 	"github.com/dankedev/kontent/utils/response"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -39,8 +41,8 @@ func NewAuthHandler(userSvc UserService) *AuthHandler {
 }
 
 // Register godoc
-// @Summary Register a new user with workspace
-// @Description Creates a new user account and automatically creates a personal workspace
+// @Summary Register a new user
+// @Description Creates a new user account. Registration is disabled when ALLOW_REGISTRATION=false. When WORKSPACE_RESTRICTED=false (default), a personal workspace is auto-created. When WORKSPACE_RESTRICTED=true, the user must be assigned to an existing workspace by an admin.
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -49,6 +51,10 @@ func NewAuthHandler(userSvc UserService) *AuthHandler {
 // @Failure 400 {object} map[string]interface{}
 // @Router /api/register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
+	if config.AppConfig != nil && !config.AppConfig.AllowRegistration {
+		return c.SendStatus(fiber.StatusNotFound)
+	}
+
 	var req RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
@@ -58,12 +64,34 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		return response.Error(c, "VALIDATION_ERROR", "Name, email, and password are required", nil)
 	}
 
-	user, token, workspace, err := h.userSvc.RegisterWithWorkspace(c.Context(), &User{
-		Name:  req.Name,
-		Email: req.Email,
-	}, req.Password)
-	if err != nil {
-		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	var user *User
+	var token string
+	var ws *workspace.Workspace
+	var err error
+
+	restricted := config.AppConfig != nil && config.AppConfig.WorkspaceRestricted
+
+	if restricted {
+		user, err = h.userSvc.Register(c.Context(), &User{
+			Name:  req.Name,
+			Email: req.Email,
+		}, req.Password)
+		if err != nil {
+			return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+		}
+
+		_, token, err = h.userSvc.Login(c.Context(), req.Email, req.Password)
+		if err != nil {
+			return response.Error(c, "INTERNAL_ERROR", "Registration successful but login failed", nil)
+		}
+	} else {
+		user, token, ws, err = h.userSvc.RegisterWithWorkspace(c.Context(), &User{
+			Name:  req.Name,
+			Email: req.Email,
+		}, req.Password)
+		if err != nil {
+			return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+		}
 	}
 
 	data := fiber.Map{
@@ -76,11 +104,11 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 			"created_at": user.CreatedAt,
 		},
 	}
-	if workspace != nil {
+	if ws != nil {
 		data["workspace"] = fiber.Map{
-			"id":   workspace.ID,
-			"name": workspace.Name,
-			"slug": workspace.Slug,
+			"id":   ws.ID,
+			"name": ws.Name,
+			"slug": ws.Slug,
 		}
 	}
 

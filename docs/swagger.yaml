@@ -1174,8 +1174,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new user account and automatically creates a personal
-        workspace
+      description: Creates a new user account. Registration is disabled when ALLOW_REGISTRATION=false.
+        When WORKSPACE_RESTRICTED=false (default), a personal workspace is auto-created.
+        When WORKSPACE_RESTRICTED=true, the user must be assigned to an existing workspace
+        by an admin.
       parameters:
       - description: Registration details
         in: body
@@ -1196,7 +1198,7 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Register a new user with workspace
+      summary: Register a new user
       tags:
       - Auth
   /api/taxonomies:
