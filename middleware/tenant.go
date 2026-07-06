@@ -12,6 +12,11 @@ import (
 // TenantScoping extracts workspace from header or subdomain and injects it into locals
 func TenantScoping(wsSvc workspace.WorkspaceService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// Skip OPTIONS preflight requests for CORS
+		if c.Method() == fiber.MethodOptions {
+			return c.Next()
+		}
+
 		// 1. Try to extract workspace ID from X-Workspace-ID header
 		wsIDStr := c.Get("X-Workspace-ID")
 		if wsIDStr != "" {

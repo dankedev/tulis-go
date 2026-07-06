@@ -11,6 +11,11 @@ import (
 // AuthGuard validates the JWT token in Authorization header and injects user_id into locals
 func AuthGuard(jwtSvc jwt.JWTService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// Skip OPTIONS preflight requests for CORS
+		if c.Method() == fiber.MethodOptions {
+			return c.Next()
+		}
+
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
 			return response.Error(c, "UNAUTHORIZED", "Missing authorization header", nil)

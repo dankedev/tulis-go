@@ -30,6 +30,7 @@ import (
 
 func SetupApp() *fiber.App {
 	app := fiber.New(fiber.Config{
+		BodyLimit: 50 * 1024 * 1024, // 50MB for file uploads
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"status":  fiber.StatusInternalServerError,
