@@ -471,6 +471,9 @@ func (s *importerService) transformContent(content string, session *importSessio
 	// Step 2: Replace old media URLs with new paths (for all img src and href attributes)
 	content = replaceMediaURLs(content, session.urlMap)
 
+	// Step 3: Convert HTML to Markdown (Pure Markdown storage)
+	content = htmlToMarkdown(content)
+
 	return content
 }
 
@@ -605,6 +608,222 @@ func convertGutenbergToHTML(content string) string {
 	content = strings.TrimSpace(content)
 
 	return content
+}
+
+func htmlToMarkdown(html string) string {
+	if html == "" {
+		return html
+	}
+
+	content := html
+
+	// Headers: h1-h6
+	for i := 1; i <= 6; i++ {
+		tag := fmt.Sprintf("h%d", i)
+		closeTag := fmt.Sprintf("/h%d", i)
+		re := regexp.MustCompile(`<` + tag + `[^>]*>(.*?)</` + closeTag + `>`)
+		prefix := strings.Repeat("#", i) + " "
+		content = re.ReplaceAllStringFunc(content, func(match string) string {
+			re2 := regexp.MustCompile(`<` + tag + `[^>]*>(.*?)</` + closeTag + `>`)
+			matches := re2.FindStringSubmatch(match)
+			if len(matches) > 1 {
+				return prefix + stripTags(matches[1]) + "\n\n"
+			}
+			return match
+		})
+	}
+
+	// Bold/strong
+	reBold := regexp.MustCompile(`<(?:strong|b)[^>]*>(.*?)</(?:strong|b)>`)
+	content = reBold.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<(?:strong|b)[^>]*>(.*?)</(?:strong|b)>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "**" + matches[1] + "**"
+		}
+		return match
+	})
+
+	// Italic/em
+	reItalic := regexp.MustCompile(`<(?:em|i)[^>]*>(.*?)</(?:em|i)>`)
+	content = reItalic.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<(?:em|i)[^>]*>(.*?)</(?:em|i)>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "*" + matches[1] + "*"
+		}
+		return match
+	})
+
+	// Links
+	reLink := regexp.MustCompile(`<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>`)
+	content = reLink.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 2 {
+			return "[" + stripTags(matches[2]) + "](href:" + matches[1] + ")"
+		}
+		return match
+	})
+
+	// Images: <img src="..." alt="..." />
+	reImg := regexp.MustCompile(`<img[^>]*src="([^"]+)"[^>]*>`)
+	content = reImg.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 2 {
+			return "![" + matches[2] + "](href:" + matches[1] + ")"
+		}
+		re3 := regexp.MustCompile(`<img[^>]*src="([^"]+)"[^>]*>`)
+		matches2 := re3.FindStringSubmatch(match)
+		if len(matches2) > 1 {
+			return "![](href:" + matches2[1] + ")"
+		}
+		return match
+	})
+
+	// Code blocks: <pre><code>...</code></pre>
+	reCodeBlock := regexp.MustCompile(`<pre[^>]*><code[^>]*>(.*?)</code></pre>`)
+	content = reCodeBlock.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<pre[^>]*><code[^>]*>(.*?)</code></pre>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "```\n" + matches[1] + "\n```\n\n"
+		}
+		return match
+	})
+
+	// Inline code: <code>...</code>
+	reInlineCode := regexp.MustCompile(`<code[^>]*>(.*?)</code>`)
+	content = reInlineCode.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<code[^>]*>(.*?)</code>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "`" + matches[1] + "`"
+		}
+		return match
+	})
+
+	// Blockquote
+	reBlockquote := regexp.MustCompile(`<blockquote[^>]*>(.*?)</blockquote>`)
+	content = reBlockquote.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<blockquote[^>]*>(.*?)</blockquote>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			lines := strings.Split(matches[1], "\n")
+			var result []string
+			for _, line := range lines {
+				if strings.TrimSpace(line) != "" {
+					result = append(result, "> "+line)
+				}
+			}
+			return strings.Join(result, "\n") + "\n\n"
+		}
+		return match
+	})
+
+	// Horizontal rule: <hr />
+	reHr := regexp.MustCompile(`<hr\s*/?>`)
+	content = reHr.ReplaceAllString(content, "\n---\n\n")
+
+	// Line breaks: <br />
+	reBr := regexp.MustCompile(`<br\s*/?>`)
+	content = reBr.ReplaceAllString(content, "\n")
+
+	// Lists: <ul><li>...</li></ul>
+	reUl := regexp.MustCompile(`<ul[^>]*>(.*?)</ul>`)
+	content = reUl.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<ul[^>]*>(.*?)</ul>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			reLi := regexp.MustCompile(`<li[^>]*>(.*?)</li>`)
+			items := reLi.FindAllStringSubmatch(matches[1], -1)
+			var result []string
+			for _, item := range items {
+				if len(item) > 1 {
+					result = append(result, "- "+stripTags(item[1]))
+				}
+			}
+			return strings.Join(result, "\n") + "\n\n"
+		}
+		return match
+	})
+
+	// Ordered lists: <ol><li>...</li></ol>
+	reOl := regexp.MustCompile(`<ol[^>]*>(.*?)</ol>`)
+	content = reOl.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<ol[^>]*>(.*?)</ol>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			reLi := regexp.MustCompile(`<li[^>]*>(.*?)</li>`)
+			items := reLi.FindAllStringSubmatch(matches[1], -1)
+			var result []string
+			for i, item := range items {
+				if len(item) > 1 {
+					result = append(result, fmt.Sprintf("%d. %s", i+1, stripTags(item[1])))
+				}
+			}
+			return strings.Join(result, "\n") + "\n\n"
+		}
+		return match
+	})
+
+	// Paragraphs: <p>...</p>
+	reP := regexp.MustCompile(`<p[^>]*>(.*?)</p>`)
+	content = reP.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<p[^>]*>(.*?)</p>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return stripTags(matches[1]) + "\n\n"
+		}
+		return match
+	})
+
+	// Divs to newlines: <div>...</div>
+	reDiv := regexp.MustCompile(`<div[^>]*>(.*?)</div>`)
+	content = reDiv.ReplaceAllStringFunc(content, func(match string) string {
+		re2 := regexp.MustCompile(`<div[^>]*>(.*?)</div>`)
+		matches := re2.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return stripTags(matches[1]) + "\n\n"
+		}
+		return match
+	})
+
+	// Clean up remaining HTML tags
+	content = stripRemainingTags(content)
+
+	// Clean up excessive newlines
+	content = regexp.MustCompile(`\n{3,}`).ReplaceAllString(content, "\n\n")
+
+	// Trim whitespace
+	content = strings.TrimSpace(content)
+
+	return content
+}
+
+func stripTags(html string) string {
+	if html == "" {
+		return html
+	}
+	re := regexp.MustCompile(`<[^>]+>`)
+	result := re.ReplaceAllString(html, "")
+	// Decode common HTML entities
+	result = strings.ReplaceAll(result, "&nbsp;", " ")
+	result = strings.ReplaceAll(result, "&amp;", "&")
+	result = strings.ReplaceAll(result, "&lt;", "<")
+	result = strings.ReplaceAll(result, "&gt;", ">")
+	result = strings.ReplaceAll(result, "&quot;", "\"")
+	result = strings.ReplaceAll(result, "&#39;", "'")
+	return strings.TrimSpace(result)
+}
+
+func stripRemainingTags(html string) string {
+	if html == "" {
+		return html
+	}
+	re := regexp.MustCompile(`<[^>]+>`)
+	return re.ReplaceAllString(html, "")
 }
 
 func replaceMediaURLs(content string, urlMap map[string]string) string {
