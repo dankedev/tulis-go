@@ -18,6 +18,7 @@ import (
 	"github.com/dankedev/kontent/domain/plugin"
 	"github.com/dankedev/kontent/domain/importer"
 	"github.com/dankedev/kontent/middleware"
+	"github.com/dankedev/kontent/storage"
 	"github.com/dankedev/kontent/utils/jwt"
 	"github.com/dankedev/kontent/routes"
 	"github.com/gofiber/fiber/v2"
@@ -77,7 +78,30 @@ func SetupApp() *fiber.App {
 		postHandler := post.NewPostHandler(postSvc)
 
 		mediaRepo := media.NewMediaRepository(config.DB)
-		mediaSvc := media.NewMediaService(mediaRepo)
+
+		// Initialize storage (R2 if configured, otherwise local)
+		var mediaStorage storage.Storage
+		if config.AppConfig.R2AccountID != "" && config.AppConfig.R2AccessKey != "" && config.AppConfig.R2SecretKey != "" {
+			r2Storage, err := storage.NewR2Storage(storage.R2Config{
+				AccountID:  config.AppConfig.R2AccountID,
+				AccessKey:  config.AppConfig.R2AccessKey,
+				SecretKey:  config.AppConfig.R2SecretKey,
+				BucketName: config.AppConfig.R2BucketName,
+				PublicURL:  config.AppConfig.R2PublicURL,
+			})
+			if err != nil {
+				log.Printf("Warning: Failed to initialize R2 storage: %v, falling back to local storage", err)
+				mediaStorage = storage.NewLocalStorage("uploads")
+			} else {
+				mediaStorage = r2Storage
+				log.Println("Using Cloudflare R2 for media storage")
+			}
+		} else {
+			mediaStorage = storage.NewLocalStorage("uploads")
+			log.Println("Using local storage for media (R2 not configured)")
+		}
+
+		mediaSvc := media.NewMediaService(mediaRepo, mediaStorage)
 		mediaHandler := media.NewMediaHandler(mediaSvc)
 
 		pluginRepo := plugin.NewRepository(config.DB)

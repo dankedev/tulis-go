@@ -8,10 +8,10 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
-	"os"
-	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/dankedev/kontent/storage"
 	"github.com/google/uuid"
 )
 
@@ -27,58 +27,46 @@ type MediaService interface {
 }
 
 type mediaService struct {
-	repo MediaRepository
+	repo    MediaRepository
+	storage storage.Storage
 }
 
-func NewMediaService(repo MediaRepository) MediaService {
-	return &mediaService{repo: repo}
+func NewMediaService(repo MediaRepository, storage storage.Storage) MediaService {
+	return &mediaService{repo: repo, storage: storage}
 }
 
 func (s *mediaService) SaveFile(ctx context.Context, workspaceID uuid.UUID, filename string, fileData []byte, mimeType string, size int64, altText, caption string) (*Media, error) {
-	// Create upload dir if not exists
-	uploadDir := "uploads"
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return nil, err
-	}
-
 	uniqueID := uuid.New()
 	cleanFilename := strings.ReplaceAll(filename, " ", "_")
-	savedFilename := uniqueID.String() + "_" + cleanFilename
-	filePath := filepath.Join(uploadDir, savedFilename)
+	key := s.storage.GenerateKey(workspaceID.String(), cleanFilename, time.Now())
 
-	// Save original file
-	err := os.WriteFile(filePath, fileData, 0644)
-	if err != nil {
+	if err := s.storage.Upload(ctx, key, fileData, mimeType); err != nil {
 		return nil, err
 	}
 
-	// Image thumbnail generation
-	lowerName := strings.ToLower(filename)
 	isImage := strings.HasPrefix(mimeType, "image/") ||
-		strings.HasSuffix(lowerName, ".png") ||
-		strings.HasSuffix(lowerName, ".jpg") ||
-		strings.HasSuffix(lowerName, ".jpeg") ||
-		strings.HasSuffix(lowerName, ".gif")
+		strings.HasSuffix(strings.ToLower(filename), ".png") ||
+		strings.HasSuffix(strings.ToLower(filename), ".jpg") ||
+		strings.HasSuffix(strings.ToLower(filename), ".jpeg") ||
+		strings.HasSuffix(strings.ToLower(filename), ".gif")
 
 	if isImage {
 		reader := bytes.NewReader(fileData)
 		img, format, err := image.Decode(reader)
 		if err == nil {
-			// aspect ratio preserving thumbnail resize
 			thumbImg := createThumbnail(img)
-			thumbPath := filepath.Join(uploadDir, "thumb_"+savedFilename)
+			thumbKey := "thumb_" + key
 
-			out, err := os.Create(thumbPath)
-			if err == nil {
-				defer out.Close()
-				if format == "jpeg" || format == "jpg" {
-					_ = jpeg.Encode(out, thumbImg, nil)
-				} else if format == "png" {
-					_ = png.Encode(out, thumbImg)
-				} else if format == "gif" {
-					_ = gif.Encode(out, thumbImg, nil)
-				}
+			out := new(bytes.Buffer)
+			if format == "jpeg" || format == "jpg" {
+				_ = jpeg.Encode(out, thumbImg, nil)
+			} else if format == "png" {
+				_ = png.Encode(out, thumbImg)
+			} else if format == "gif" {
+				_ = gif.Encode(out, thumbImg, nil)
 			}
+
+			_ = s.storage.Upload(ctx, thumbKey, out.Bytes(), mimeType)
 		}
 	}
 
@@ -86,7 +74,7 @@ func (s *mediaService) SaveFile(ctx context.Context, workspaceID uuid.UUID, file
 		ID:          uniqueID,
 		WorkspaceID: workspaceID,
 		Filename:    cleanFilename,
-		Path:        "/uploads/" + savedFilename,
+		Path:        s.storage.GetURL(key),
 		MimeType:    mimeType,
 		Size:        size,
 		AltText:     altText,
@@ -114,13 +102,12 @@ func (s *mediaService) DeleteMedia(ctx context.Context, id uuid.UUID) error {
 		return ErrMediaNotFound
 	}
 
-	// Delete local files
-	localPath := strings.TrimPrefix(m.Path, "/")
-	_ = os.Remove(localPath)
-
-	// Delete thumbnail if it exists
-	thumbPath := filepath.Join("uploads", "thumb_"+filepath.Base(localPath))
-	_ = os.Remove(thumbPath)
+	key := s.storage.ExtractKey(m.Path)
+	if key != "" {
+		_ = s.storage.Delete(ctx, key)
+		thumbKey := "thumb_" + key
+		_ = s.storage.Delete(ctx, thumbKey)
+	}
 
 	return s.repo.Delete(ctx, id)
 }
@@ -137,7 +124,6 @@ func (s *mediaService) ListMedia(ctx context.Context, workspaceID uuid.UUID, pag
 	return s.repo.List(ctx, workspaceID, perPage, offset)
 }
 
-// Pure standard library nearest-neighbor resizer helper
 func scaleImage(src image.Image, w, h int) image.Image {
 	srcBounds := src.Bounds()
 	srcW := srcBounds.Dx()

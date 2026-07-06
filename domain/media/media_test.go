@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/dankedev/kontent/domain/media"
+	"github.com/dankedev/kontent/storage"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
@@ -32,7 +33,8 @@ func setupTestMediaDB(t *testing.T) (*gorm.DB, media.MediaService, *media.MediaH
 	}
 
 	repo := media.NewMediaRepository(db)
-	svc := media.NewMediaService(repo)
+	localStorage := storage.NewLocalStorage("uploads")
+	svc := media.NewMediaService(repo, localStorage)
 	handler := media.NewMediaHandler(svc)
 
 	return db, svc, handler

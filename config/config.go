@@ -19,6 +19,11 @@ type Config struct {
 	JWTExpiryHours      int
 	WorkspaceRestricted  bool
 	AllowRegistration    bool
+	R2AccountID          string
+	R2AccessKey         string
+	R2SecretKey         string
+	R2BucketName        string
+	R2PublicURL         string
 }
 
 var AppConfig *Config
@@ -33,11 +38,16 @@ func LoadConfig() {
 		DBPort:              getEnv("DB_PORT", "3306"),
 		DBUser:              getEnv("DB_USER", "root"),
 		DBPassword:          getEnv("DB_PASSWORD", ""),
-		DBName:              getEnv("DB_NAME", "konten"),
+		DBName:              getEnv("DB_NAME", "kontent"),
 		JWTSecret:           getEnv("JWT_SECRET", "super-secret-key"),
 		JWTExpiryHours:      getEnvInt("JWT_EXPIRY_HOURS", 24),
 		WorkspaceRestricted:  getEnvBool("WORKSPACE_RESTRICTED", false),
 		AllowRegistration:    getEnvBool("ALLOW_REGISTRATION", true),
+		R2AccountID:          getEnv("R2_ACCOUNT_ID", ""),
+		R2AccessKey:         getEnv("R2_ACCESS_KEY_ID", ""),
+		R2SecretKey:         getEnv("R2_SECRET_ACCESS_KEY", ""),
+		R2BucketName:        getEnv("R2_BUCKET_NAME", ""),
+		R2PublicURL:         getEnv("R2_PUBLIC_URL", ""),
 	}
 }
 
