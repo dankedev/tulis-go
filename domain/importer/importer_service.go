@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -373,8 +374,8 @@ func (s *importerService) importPosts(ctx context.Context, items []WXRItem, sess
 			}
 		}
 
-		content := s.rewriteContentURLs(item.Content, session)
-		excerpt := s.rewriteContentURLs(item.Excerpt, session)
+		content := s.transformContent(item.Content, session)
+		excerpt := s.transformContent(item.Excerpt, session)
 
 		postType := item.PostType
 		if postType == "" {
@@ -459,14 +460,240 @@ func (s *importerService) mapStatus(wpStatus string) string {
 	}
 }
 
-func (s *importerService) rewriteContentURLs(content string, session *importSession) string {
-	if content == "" || len(session.urlMap) == 0 {
+func (s *importerService) transformContent(content string, session *importSession) string {
+	if content == "" {
 		return content
 	}
-	result := content
-	for oldURL, newPath := range session.urlMap {
-		result = strings.ReplaceAll(result, oldURL, newPath)
+
+	// Step 1: Convert Gutenberg blocks to HTML
+	content = convertGutenbergToHTML(content)
+
+	// Step 2: Replace old media URLs with new paths (for all img src and href attributes)
+	content = replaceMediaURLs(content, session.urlMap)
+
+	return content
+}
+
+func convertGutenbergToHTML(content string) string {
+	// Replace common Gutenberg blocks with HTML equivalents
+
+	// Paragraph: <!-- wp:paragraph -->...<!-- /wp:paragraph -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:paragraph\s*-->\s*<p[^>]*>(.*?)</p>\s*<!--\s*/wp:paragraph\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		// Extract content between <p> tags
+		re := regexp.MustCompile(`<p[^>]*>(.*?)</p>`)
+		matches := re.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "<p>" + matches[1] + "</p>"
+		}
+		return match
+	})
+
+	// Image block: <!-- wp:image -->...<!-- /wp:image --> with figure and img
+	content = regexp.MustCompile(`(?s)<!--\s*wp:image\s*-->\s*<figure[^>]*>\s*<img\s+src="([^"]+)"[^>]*/>\s*</figure>\s*<!--\s*/wp:image\s*-->`).ReplaceAllString(content, `<img src="$1" />`)
+
+	// Image block with link: convert linked images
+	content = regexp.MustCompile(`(?s)<!--\s*wp:image\s*-->\s*<figure[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>\s*<img\s+src="([^"]+)"[^>]*/>\s*</a>\s*</figure>\s*<!--\s*/wp:image\s*-->`).ReplaceAllString(content, `<a href="$1"><img src="$2" /></a>`)
+
+	// Heading blocks: <!-- wp:heading {"level":2} -->...<!-- /wp:heading -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:heading\s*(?:\{[^}]*\})?\s*-->\s*<h([1-6])[^>]*>(.*?)</h\1>\s*<!--\s*/wp:heading\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		re := regexp.MustCompile(`<h([1-6])[^>]*>(.*?)</h\1>`)
+		matches := re.FindStringSubmatch(match)
+		if len(matches) > 2 {
+			return "<" + matches[1] + ">" + matches[2] + "</" + matches[1] + ">"
+		}
+		return match
+	})
+
+	// List blocks: <!-- wp:list -->...<!-- /wp:list -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:list\s*-->\s*<ul[^>]*>(.*?)</ul>\s*<!--\s*/wp:list\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		re := regexp.MustCompile(`<ul[^>]*>(.*?)</ul>`)
+		matches := re.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "<ul>" + matches[1] + "</ul>"
+		}
+		return match
+	})
+
+	// Quote blocks: <!-- wp:quote -->...<!-- /wp:quote -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:quote\s*-->\s*<blockquote[^>]*>(.*?)</blockquote>\s*<!--\s*/wp:quote\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		re := regexp.MustCompile(`<blockquote[^>]*>(.*?)</blockquote>`)
+		matches := re.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "<blockquote>" + matches[1] + "</blockquote>"
+		}
+		return match
+	})
+
+	// Code blocks: <!-- wp:code -->...<!-- /wp:code -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:code\s*-->\s*<pre[^>]*><code[^>]*>(.*?)</code></pre>\s*<!--\s*/wp:code\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		re := regexp.MustCompile(`<code[^>]*>(.*?)</code>`)
+		matches := re.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return "<pre><code>" + matches[1] + "</code></pre>"
+		}
+		return match
+	})
+
+	// Separator: <!-- wp:separator -->
+	content = regexp.MustCompile(`<!--\s*wp:separator\s*-->`).ReplaceAllString(content, "<hr />")
+
+	// More block: <!-- more -->
+	content = regexp.MustCompile(`<!--\s*more\s*-->`).ReplaceAllString(content, "<!--more-->")
+
+	// Gallery: <!-- wp:gallery -->...<!-- /wp:gallery -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:gallery\s*-->(.*?)<!--\s*/wp:gallery\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		// Extract individual image src from gallery
+		re := regexp.MustCompile(`<img\s+src="([^"]+)"`)
+		matches := re.FindAllStringSubmatch(match, -1)
+		var imgs []string
+		for _, m := range matches {
+			if len(m) > 1 {
+				imgs = append(imgs, `<img src="`+m[1]+`" />`)
+			}
+		}
+		if len(imgs) > 0 {
+			return `<div class="gallery">` + strings.Join(imgs, "") + `</div>`
+		}
+		return match
+	})
+
+	// Cover block: <!-- wp:cover -->...<!-- /wp:cover -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:cover\s*-->\s*<div[^>]*background-image:[^>]*url\(([^)]+)\)[^>]*>.*?</div>\s*<!--\s*/wp:cover\s*-->`).ReplaceAllString(content, `<div class="cover" style="background-image:url($1)"></div>`)
+
+	// Pullquote: <!-- wp:pullquote -->...<!-- /wp:pullquote -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:pullquote\s*-->\s*<blockquote[^>]*>(.*?)</blockquote>\s*<!--\s*/wp:pullquote\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		re := regexp.MustCompile(`<blockquote[^>]*>(.*?)</blockquote>`)
+		matches := re.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return `<blockquote class="pullquote">` + matches[1] + `</blockquote>`
+		}
+		return match
+	})
+
+	// Button block inside group
+	content = regexp.MustCompile(`<!--\s*wp:buttons\s*-->(.*?)<!--\s*/wp:buttons\s*-->`).ReplaceAllStringFunc(content, func(match string) string {
+		re := regexp.MustCompile(`<div[^>]*class="[^"]*wp-block-button[^"]*"[^>]*>(.*?)</div>`)
+		matches := re.FindStringSubmatch(match)
+		if len(matches) > 1 {
+			return matches[0]
+		}
+		return match
+	})
+
+	// Columns: <!-- wp:columns -->...<!-- /wp:columns -->
+	content = regexp.MustCompile(`(?s)<!--\s*wp:columns\s*-->\s*(<div[^>]*class="[^"]*wp-block-columns[^"]*"[^>]*>)(.*?)(</div>)\s*<!--\s*/wp:columns\s*-->`).ReplaceAllString(content, `<div class="columns">$2</div>`)
+
+	// Group block
+	content = regexp.MustCompile(`(?s)<!--\s*wp:group\s*-->\s*(<div[^>]*>)(.*?)(</div>)\s*<!--\s*/wp:group\s*-->`).ReplaceAllString(content, `<div class="group">$2</div>`)
+
+	// Spacer: <!-- wp:spacer -->
+	content = regexp.MustCompile(`<!--\s*wp:spacer\s*-->`).ReplaceAllString(content, `<div class="spacer"></div>`)
+
+	// Embed blocks - convert to figures with captions
+	content = regexp.MustCompile(`(?s)<!--\s*wp:embed\s*-->\s*(<figure[^>]*>.*?</figure>)\s*<!--\s*/wp:embed\s*-->`).ReplaceAllString(content, "$1")
+
+	// Remove remaining Gutenberg comments: <!-- wp:xxx --> and <!-- /wp:xxx -->
+	content = regexp.MustCompile(`<!--\s*/?wp:[a-z0-9-]+\s*(?:\{[^}]*\})?\s*-->`).ReplaceAllString(content, "")
+
+	// Clean up empty paragraphs
+	content = regexp.MustCompile(`<p>\s*</p>`).ReplaceAllString(content, "")
+
+	// Clean up double spaces
+	content = regexp.MustCompile(`\s+`).ReplaceAllString(content, " ")
+
+	// Trim whitespace around block elements
+	content = strings.TrimSpace(content)
+
+	return content
+}
+
+func replaceMediaURLs(content string, urlMap map[string]string) string {
+	if content == "" || len(urlMap) == 0 {
+		return content
 	}
+
+	result := content
+
+	// Replace URLs in img src attributes
+	imgRe := regexp.MustCompile(`(<img[^>]*src=")([^"]+)("[^>]*>)`)
+	result = imgRe.ReplaceAllStringFunc(result, func(match string) string {
+		submatches := imgRe.FindStringSubmatch(match)
+		if len(submatches) > 3 {
+			oldURL := submatches[2]
+			if newPath, ok := urlMap[oldURL]; ok {
+				return submatches[1] + newPath + submatches[3]
+			}
+			// Try partial match (in case URL has query params)
+			for oldBase, newPath := range urlMap {
+				if strings.Contains(oldURL, oldBase) {
+					return submatches[1] + newPath + submatches[3]
+				}
+			}
+		}
+		return match
+	})
+
+	// Replace URLs in href attributes (for image links)
+	hrefRe := regexp.MustCompile(`(<a[^>]*href=")([^"]+)("[^>]*>)`)
+	result = hrefRe.ReplaceAllStringFunc(result, func(match string) string {
+		submatches := hrefRe.FindStringSubmatch(match)
+		if len(submatches) > 3 {
+			oldURL := submatches[2]
+			if newPath, ok := urlMap[oldURL]; ok {
+				return submatches[1] + newPath + submatches[3]
+			}
+			for oldBase, newPath := range urlMap {
+				if strings.Contains(oldURL, oldBase) {
+					return submatches[1] + newPath + submatches[3]
+				}
+			}
+		}
+		return match
+	})
+
+	// Replace URLs in style attributes (for background-image)
+	styleRe := regexp.MustCompile(`(style="[^"]*url\()([^)]+)(\)[^"]*")`)
+	result = styleRe.ReplaceAllStringFunc(result, func(match string) string {
+		submatches := styleRe.FindStringSubmatch(match)
+		if len(submatches) > 3 {
+			oldURL := submatches[2]
+			// Remove quotes if present
+			oldURL = strings.Trim(oldURL, `"'`)
+			if newPath, ok := urlMap[oldURL]; ok {
+				return submatches[1] + `"` + newPath + `"` + submatches[3]
+			}
+			for oldBase, newPath := range urlMap {
+				if strings.Contains(oldURL, oldBase) {
+					return submatches[1] + `"` + newPath + `"` + submatches[3]
+				}
+			}
+		}
+		return match
+	})
+
+	// Replace URLs in srcset attributes
+	srcsetRe := regexp.MustCompile(`(srcset=")([^"]+)("[^>]*>)`)
+	result = srcsetRe.ReplaceAllStringFunc(result, func(match string) string {
+		submatches := srcsetRe.FindStringSubmatch(match)
+		if len(submatches) > 3 {
+			srcset := submatches[2]
+			for oldURL, newPath := range urlMap {
+				if strings.Contains(srcset, oldURL) {
+					srcset = strings.ReplaceAll(srcset, oldURL, newPath)
+				}
+			}
+			return submatches[1] + srcset + submatches[3]
+		}
+		return match
+	})
+
+	// Generic URL replacement for any remaining URLs (for Gutenberg JSON attrs)
+	for oldURL, newPath := range urlMap {
+		// Replace exact URL
+		result = strings.Replace(result, `"`+oldURL+`"`, `"`+newPath+`"`, -1)
+		result = strings.Replace(result, `'`+oldURL+`'`, `'`+newPath+`'`, -1)
+	}
+
 	return result
 }
 
