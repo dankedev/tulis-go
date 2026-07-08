@@ -140,6 +140,7 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		PostType:     postType,
 		PublishedAt:  publishedAt,
 		CustomFields: req.CustomFields,
+		FeatureImage: req.FeatureImage,
 	}
 
 	if err := s.repo.Create(ctx, post); err != nil {
@@ -166,6 +167,7 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		Excerpt:      post.Excerpt,
 		CustomFields: post.CustomFields,
 		AuthorID:     authorID,
+		FeatureImage: post.FeatureImage,
 	}
 	_ = s.repo.CreateRevision(ctx, revision)
 
@@ -259,6 +261,10 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 		post.CustomFields = req.CustomFields
 	}
 
+	if req.FeatureImage != nil {
+		post.FeatureImage = *req.FeatureImage
+	}
+
 	if err := s.repo.Update(ctx, post); err != nil {
 		return nil, err
 	}
@@ -283,6 +289,7 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 		Excerpt:      post.Excerpt,
 		CustomFields: post.CustomFields,
 		AuthorID:     authorID,
+		FeatureImage: post.FeatureImage,
 	}
 	_ = s.repo.CreateRevision(ctx, revision)
 
@@ -391,6 +398,7 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 	post.Content = revision.Content
 	post.Excerpt = revision.Excerpt
 	post.CustomFields = revision.CustomFields
+	post.FeatureImage = revision.FeatureImage
 
 	if err := s.repo.Update(ctx, post); err != nil {
 		return nil, err
@@ -404,6 +412,7 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 		Excerpt:      post.Excerpt,
 		CustomFields: post.CustomFields,
 		AuthorID:     authorID,
+		FeatureImage: post.FeatureImage,
 	}
 	_ = s.repo.CreateRevision(ctx, newRevision)
 

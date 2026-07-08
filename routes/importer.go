@@ -9,4 +9,6 @@ func RegisterImporterRoutes(tenantGroup fiber.Router, importerHandler *importer.
 	tenantGroup.Post("/plugins/importer/upload", importerHandler.Upload)
 	tenantGroup.Get("/plugins/importer/logs", importerHandler.ListLogs)
 	tenantGroup.Get("/plugins/importer/logs/:id", importerHandler.GetLog)
+	tenantGroup.Post("/plugins/importer/csv/upload", importerHandler.UploadCSV)
+	tenantGroup.Post("/plugins/importer/csv/import", importerHandler.StartCSVImport)
 }

@@ -14,7 +14,11 @@
 package importer
 
 import (
+	"context"
+	"io"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
@@ -178,3 +182,132 @@ func (h *ImporterHandler) GetLog(c *fiber.Ctx) error {
 
 	return response.Success(c, log, "Import log retrieved successfully")
 }
+
+// UploadCSV godoc
+// @Summary Upload and parse CSV headers
+// @Description Uploads a CSV file, saves it to storage, and extracts its headers for mapping
+// @Tags Importer
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param file formData file true "CSV file"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/plugins/importer/csv/upload [post]
+func (h *ImporterHandler) UploadCSV(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "File parameter is required", nil)
+	}
+
+	if fileHeader.Size > 50*1024*1024 {
+		return response.Error(c, "BAD_REQUEST", "File size exceeds 50MB limit", nil)
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Failed to read file", nil)
+	}
+	defer file.Close()
+
+	fileData, err := io.ReadAll(file)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Failed to read file contents", nil)
+	}
+
+	fileURL, headers, err := h.svc.UploadCSV(c.Context(), workspaceID, fileHeader.Filename, fileData)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, fiber.Map{
+		"file_url": fileURL,
+		"headers":  headers,
+	}, "CSV parsed and uploaded successfully")
+}
+
+type StartCSVImportReq struct {
+	FileURL         string            `json:"file_url"`
+	Mapping         map[string]string `json:"mapping"`
+	DefaultStatus   string            `json:"default_status"`
+	DefaultPostType string            `json:"default_post_type"`
+}
+
+// StartCSVImport godoc
+// @Summary Start background CSV import
+// @Description Spawns a background process to import CSV rows based on field mappings
+// @Tags Importer
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param req body StartCSVImportReq true "CSV import details and mapping configuration"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/plugins/importer/csv/import [post]
+func (h *ImporterHandler) StartCSVImport(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	userIDStr := c.Locals("user_id")
+	if userIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	var req StartCSVImportReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	if req.FileURL == "" {
+		return response.Error(c, "BAD_REQUEST", "file_url is required", nil)
+	}
+
+	// Create running log
+	filename := filepath.Base(req.FileURL)
+	if idx := strings.Index(filename, "?"); idx != -1 {
+		filename = filename[:idx]
+	}
+
+	log := &ImportLog{
+		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
+		AuthorID:    authorID,
+		Filename:    filename,
+		Status:      "running",
+	}
+
+	if err := h.svc.(*importerService).db.WithContext(c.Context()).Create(log).Error; err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to create import session log", nil)
+	}
+
+	// Start asynchronous background process
+	go h.svc.ImportCSVBackground(context.Background(), workspaceID, authorID, log.ID, req.FileURL, req.Mapping, req.DefaultStatus, req.DefaultPostType)
+
+	return response.Success(c, log, "CSV import started in the background")
+}
+

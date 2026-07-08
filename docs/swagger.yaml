@@ -1,4 +1,17 @@
 definitions:
+  domain_importer.StartCSVImportReq:
+    properties:
+      default_post_type:
+        type: string
+      default_status:
+        type: string
+      file_url:
+        type: string
+      mapping:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
   domain_plugin.SaveSettingsReq:
     properties:
       settings:
@@ -18,6 +31,8 @@ definitions:
         additionalProperties: true
         type: object
       excerpt:
+        type: string
+      feature_image:
         type: string
       post_type:
         type: string
@@ -87,6 +102,8 @@ definitions:
         additionalProperties: true
         type: object
       excerpt:
+        type: string
+      feature_image:
         type: string
       post_type:
         type: string
@@ -395,6 +412,52 @@ paths:
       summary: Get media by ID
       tags:
       - Media
+    put:
+      consumes:
+      - application/json
+      description: Updates the alt text and caption of a media item by UUID
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Media UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: JSON body containing alt_text and caption
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a media item's metadata
+      tags:
+      - Media
   /api/media/upload:
     post:
       consumes:
@@ -582,6 +645,96 @@ paths:
       summary: Toggle plugin enabled state
       tags:
       - Plugins
+  /api/plugins/importer/csv/import:
+    post:
+      consumes:
+      - application/json
+      description: Spawns a background process to import CSV rows based on field mappings
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: CSV import details and mapping configuration
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain_importer.StartCSVImportReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start background CSV import
+      tags:
+      - Importer
+  /api/plugins/importer/csv/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a CSV file, saves it to storage, and extracts its headers
+        for mapping
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: CSV file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload and parse CSV headers
+      tags:
+      - Importer
   /api/plugins/importer/logs:
     get:
       consumes:

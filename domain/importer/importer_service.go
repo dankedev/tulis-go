@@ -1,12 +1,16 @@
 package importer
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -24,6 +28,9 @@ type ImporterService interface {
 	ImportWXR(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportLog, error)
 	GetImportLog(ctx context.Context, id uuid.UUID) (*ImportLog, error)
 	ListImportLogs(ctx context.Context, workspaceID uuid.UUID, page, perPage int) ([]ImportLog, int64, error)
+	ParseCSVHeaders(ctx context.Context, file io.Reader) ([]string, error)
+	UploadCSV(ctx context.Context, workspaceID uuid.UUID, filename string, fileData []byte) (string, []string, error)
+	ImportCSVBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, fileURL string, mapping map[string]string, defaultStatus, defaultPostType string)
 }
 
 type importerService struct {
@@ -950,3 +957,268 @@ func (s *importerService) ListImportLogs(ctx context.Context, workspaceID uuid.U
 
 	return logs, total, nil
 }
+
+func (s *importerService) ParseCSVHeaders(ctx context.Context, file io.Reader) ([]string, error) {
+	reader := csv.NewReader(file)
+	headers, err := reader.Read()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CSV header: %w", err)
+	}
+	return headers, nil
+}
+
+func (s *importerService) readImportFile(ctx context.Context, fileURL string) ([]byte, error) {
+	if strings.HasPrefix(fileURL, "/uploads/") {
+		localPath := filepath.Join("uploads", strings.TrimPrefix(fileURL, "/uploads/"))
+		return os.ReadFile(localPath)
+	}
+	// Fallback to HTTP download
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download file, HTTP status: %d", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+func (s *importerService) ImportCSVBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, fileURL string, mapping map[string]string, defaultStatus, defaultPostType string) {
+	bgCtx := context.Background()
+
+	log := &ImportLog{}
+	if err := s.db.Where("id = ?", logID).First(log).Error; err != nil {
+		return
+	}
+
+	updateLogStatus := func(status string, result ImportResult, errorsList []string) {
+		log.Status = status
+		log.PostsCount = result.PostsCount
+		log.PagesCount = result.PagesCount
+		log.MediaCount = result.MediaCount
+		log.TaxCount = result.TaxCount
+		log.SkippedCount = result.SkippedCount
+
+		errorsJSON, _ := json.Marshal(errorsList)
+		log.Errors = string(errorsJSON)
+
+		summaryJSON, _ := json.Marshal(result)
+		log.Summary = string(summaryJSON)
+
+		s.db.Save(log)
+	}
+
+	result := ImportResult{}
+	var errorsList []string
+
+	// 1. Fetch file
+	data, err := s.readImportFile(bgCtx, fileURL)
+	if err != nil {
+		errorsList = append(errorsList, fmt.Sprintf("Failed to read file from %s: %v", fileURL, err))
+		updateLogStatus("failed", result, errorsList)
+		return
+	}
+
+	// 2. Parse CSV
+	reader := csv.NewReader(bytes.NewReader(data))
+	records, err := reader.ReadAll()
+	if err != nil {
+		errorsList = append(errorsList, fmt.Sprintf("Failed to parse CSV records: %v", err))
+		updateLogStatus("failed", result, errorsList)
+		return
+	}
+
+	if len(records) < 2 {
+		errorsList = append(errorsList, "CSV file has no data rows")
+		updateLogStatus("failed", result, errorsList)
+		return
+	}
+
+	headers := records[0]
+	headerMap := make(map[string]int)
+	for i, h := range headers {
+		headerMap[strings.TrimSpace(h)] = i
+	}
+
+	// Helper to extract column value by field name using mapping
+	getVal := func(row []string, field string) string {
+		colName, ok := mapping[field]
+		if !ok || colName == "" {
+			return ""
+		}
+		idx, ok := headerMap[colName]
+		if !ok || idx >= len(row) {
+			return ""
+		}
+		return row[idx]
+	}
+
+	// Process each row
+	for rowIndex := 1; rowIndex < len(records); rowIndex++ {
+		row := records[rowIndex]
+		if len(row) == 0 {
+			continue
+		}
+
+		title := getVal(row, "title")
+		if title == "" {
+			result.SkippedCount++
+			errorsList = append(errorsList, fmt.Sprintf("Row %d: title is empty, skipped", rowIndex+1))
+			continue
+		}
+
+		content := getVal(row, "content")
+		excerpt := getVal(row, "excerpt")
+		slug := getVal(row, "slug")
+		status := getVal(row, "status")
+		postType := getVal(row, "post_type")
+		publishedAtStr := getVal(row, "published_at")
+		featureImageCol := getVal(row, "feature_image")
+
+		if status == "" {
+			status = defaultStatus
+		}
+		if status == "" {
+			status = "draft"
+		}
+		if status != "draft" && status != "published" && status != "scheduled" && status != "archived" {
+			status = "draft"
+		}
+
+		if postType == "" {
+			postType = defaultPostType
+		}
+		if postType == "" {
+			postType = "post"
+		}
+
+		if slug == "" {
+			slug = helpers.Slugify(title)
+		}
+
+		originalSlug := slug
+		counter := 1
+		for {
+			existing, _ := s.postRepo.FindBySlug(bgCtx, workspaceID, slug)
+			if existing == nil {
+				break
+			}
+			slug = fmt.Sprintf("%s-%d", originalSlug, counter)
+			counter++
+		}
+
+		var publishedAt *time.Time
+		if publishedAtStr != "" {
+			// Try various date formats
+			formats := []string{
+				time.RFC3339,
+				"2006-01-02 15:04:05",
+				"2006-01-02 15:04",
+				"2006-01-02",
+				"01/02/2006",
+				"02/01/2006",
+			}
+			for _, fmtStr := range formats {
+				t, err := time.Parse(fmtStr, publishedAtStr)
+				if err == nil {
+					publishedAt = &t
+					break
+				}
+			}
+		}
+
+		if publishedAt == nil && status == "published" {
+			now := time.Now()
+			publishedAt = &now
+		}
+
+		// Handle Feature Image download
+		featureImageURL := ""
+		if featureImageCol != "" && (strings.HasPrefix(featureImageCol, "http://") || strings.HasPrefix(featureImageCol, "https://")) {
+			imgData, imgMime, err := s.downloadImage(bgCtx, featureImageCol)
+			if err != nil {
+				errorsList = append(errorsList, fmt.Sprintf("Row %d: failed to download feature image %s: %v", rowIndex+1, featureImageCol, err))
+			} else {
+				u, parseErr := url.Parse(featureImageCol)
+				filename := "feature_image"
+				if parseErr == nil {
+					filename = filepath.Base(u.Path)
+				}
+				if ext := s.mimeToExt(imgMime); ext != "" && !strings.HasSuffix(filename, ext) {
+					filename = filename + ext
+				}
+
+				m, err := s.mediaSvc.SaveFile(bgCtx, workspaceID, filename, imgData, imgMime, int64(len(imgData)), "Featured Image for "+title, "")
+				if err != nil {
+					errorsList = append(errorsList, fmt.Sprintf("Row %d: failed to save feature image to storage: %v", rowIndex+1, err))
+				} else {
+					featureImageURL = m.Path
+					result.MediaCount++
+				}
+			}
+		} else if featureImageCol != "" {
+			featureImageURL = featureImageCol
+		}
+
+		p := &post.Post{
+			ID:           uuid.New(),
+			Title:        title,
+			Slug:         slug,
+			Content:      content,
+			Excerpt:      excerpt,
+			Status:       status,
+			AuthorID:     authorID,
+			WorkspaceID:  workspaceID,
+			PostType:     postType,
+			PublishedAt:  publishedAt,
+			FeatureImage: featureImageURL,
+		}
+
+		if err := s.postRepo.Create(bgCtx, p); err != nil {
+			errorsList = append(errorsList, fmt.Sprintf("Row %d: failed to create post: %v", rowIndex+1, err))
+			continue
+		}
+
+		revision := &post.PostRevision{
+			ID:           uuid.New(),
+			PostID:       p.ID,
+			Title:        p.Title,
+			Content:      p.Content,
+			Excerpt:      p.Excerpt,
+			AuthorID:     authorID,
+			FeatureImage: p.FeatureImage,
+		}
+		s.postRepo.CreateRevision(bgCtx, revision)
+
+		if postType == "post" {
+			result.PostsCount++
+		} else {
+			result.PagesCount++
+		}
+	}
+
+	updateLogStatus("completed", result, errorsList)
+}
+
+func (s *importerService) UploadCSV(ctx context.Context, workspaceID uuid.UUID, filename string, fileData []byte) (string, []string, error) {
+	// 1. Parse headers first to validate
+	headers, err := s.ParseCSVHeaders(ctx, bytes.NewReader(fileData))
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid CSV file: %w", err)
+	}
+
+	// 2. Save file using media service
+	m, err := s.mediaSvc.SaveFile(ctx, workspaceID, filename, fileData, "text/csv", int64(len(fileData)), "Import source CSV: "+filename, "")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to save CSV to storage: %w", err)
+	}
+
+	return m.Path, headers, nil
+}
+

@@ -12,6 +12,7 @@ type CreatePostReq struct {
 	PublishedAt  *time.Time             `json:"published_at"`
 	CustomFields map[string]interface{} `json:"custom_fields"`
 	TaxonomyIDs  []string               `json:"taxonomy_ids"` // IDs of categories/tags to assign
+	FeatureImage string                 `json:"feature_image"`
 }
 
 type UpdatePostReq struct {
@@ -24,6 +25,7 @@ type UpdatePostReq struct {
 	PublishedAt  *time.Time             `json:"published_at"`
 	CustomFields map[string]interface{} `json:"custom_fields"`
 	TaxonomyIDs  *[]string              `json:"taxonomy_ids"` // optional taxonomy assignment updates
+	FeatureImage *string                `json:"feature_image"`
 }
 
 type CreatePostTypeReq struct {
