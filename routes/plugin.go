@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/dankedev/kontent/domain/plugin"
+	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/gofiber/fiber/v2"
 )
 

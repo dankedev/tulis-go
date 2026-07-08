@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/dankedev/kontent/domain/workspace"
-	"github.com/dankedev/kontent/utils/jwt"
+	"github.com/dankedev/tulis-go/domain/workspace"
+	"github.com/dankedev/tulis-go/utils/jwt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )

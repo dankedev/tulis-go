@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dankedev/kontent/domain/workspace"
-	"github.com/dankedev/kontent/middleware"
+	"github.com/dankedev/tulis-go/domain/workspace"
+	"github.com/dankedev/tulis-go/middleware"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"

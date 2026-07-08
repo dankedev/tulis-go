@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dankedev/kontent/domain/post"
+	"github.com/dankedev/tulis-go/domain/post"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
@@ -353,7 +353,7 @@ func TestPostServiceAndHandler(t *testing.T) {
 		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
 		req.Header.Set("Content-Type", "application/json")
 		resp, _ := app.Test(req, -1)
-		
+
 		var createRes map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&createRes)
 		pData := createRes["data"].(map[string]interface{})
@@ -496,7 +496,7 @@ func TestPostServiceAndHandler(t *testing.T) {
 		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
 		req.Header.Set("Content-Type", "application/json")
 		resp, _ := app.Test(req, -1)
-		
+
 		var pubPostRes map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&pubPostRes)
 		pubPostData := pubPostRes["data"].(map[string]interface{})
@@ -512,7 +512,7 @@ func TestPostServiceAndHandler(t *testing.T) {
 		req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
 		req.Header.Set("Content-Type", "application/json")
 		resp, _ = app.Test(req, -1)
-		
+
 		var draftPostRes map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&draftPostRes)
 		draftPostData := draftPostRes["data"].(map[string]interface{})

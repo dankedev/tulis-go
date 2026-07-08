@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dankedev/kontent/utils/jwt"
+	"github.com/dankedev/tulis-go/utils/jwt"
 	"github.com/gofiber/fiber/v2"
 )
 

@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dankedev/kontent/domain/media"
-	"github.com/dankedev/kontent/domain/post"
-	"github.com/dankedev/kontent/utils/helpers"
+	"github.com/dankedev/tulis-go/domain/media"
+	"github.com/dankedev/tulis-go/domain/post"
+	"github.com/dankedev/tulis-go/utils/helpers"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -56,9 +56,9 @@ type importSession struct {
 	authorID    uuid.UUID
 	result      ImportResult
 	errors      []string
-	urlMap     map[string]string
-	taxMap     map[string]uuid.UUID
-	log        *ImportLog
+	urlMap      map[string]string
+	taxMap      map[string]uuid.UUID
+	log         *ImportLog
 }
 
 func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportLog, error) {
@@ -91,10 +91,10 @@ func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID u
 		workspaceID: workspaceID,
 		authorID:    authorID,
 		result:      ImportResult{},
-		errors:     []string{},
-		urlMap:     make(map[string]string),
-		taxMap:    make(map[string]uuid.UUID),
-		log:       log,
+		errors:      []string{},
+		urlMap:      make(map[string]string),
+		taxMap:      make(map[string]uuid.UUID),
+		log:         log,
 	}
 
 	if err := s.importTaxonomies(ctx, wxr.Channel, session); err != nil {

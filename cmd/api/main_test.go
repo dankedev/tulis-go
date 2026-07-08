@@ -8,12 +8,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dankedev/kontent/config"
-	"github.com/dankedev/kontent/domain/media"
-	"github.com/dankedev/kontent/domain/plugin"
-	"github.com/dankedev/kontent/domain/post"
-	"github.com/dankedev/kontent/domain/user"
-	"github.com/dankedev/kontent/domain/workspace"
+	"github.com/dankedev/tulis-go/config"
+	"github.com/dankedev/tulis-go/domain/media"
+	"github.com/dankedev/tulis-go/domain/plugin"
+	"github.com/dankedev/tulis-go/domain/post"
+	"github.com/dankedev/tulis-go/domain/user"
+	"github.com/dankedev/tulis-go/domain/workspace"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

@@ -5,13 +5,12 @@
 //	Schemes: http
 //	BasePath: /api/v1/public
 //	Version: 1.0.0
-//
 package post
 
 import (
 	"strconv"
 
-	"github.com/dankedev/kontent/utils/response"
+	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )

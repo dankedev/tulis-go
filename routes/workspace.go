@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/dankedev/kontent/domain/workspace"
+	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/gofiber/fiber/v2"
 )
 

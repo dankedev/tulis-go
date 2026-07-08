@@ -11,14 +11,13 @@
 //	     type: apiKey
 //	     name: Authorization
 //	     in: header
-//
 package media
 
 import (
 	"io"
 	"strconv"
 
-	"github.com/dankedev/kontent/utils/response"
+	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )

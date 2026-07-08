@@ -1,4 +1,4 @@
-module github.com/dankedev/kontent
+module github.com/dankedev/tulis-go
 
 go 1.25.6
 

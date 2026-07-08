@@ -9,18 +9,18 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/dankedev/kontent/docs"
-	"github.com/dankedev/kontent/config"
-	"github.com/dankedev/kontent/domain/media"
-	"github.com/dankedev/kontent/domain/post"
-	"github.com/dankedev/kontent/domain/user"
-	"github.com/dankedev/kontent/domain/workspace"
-	"github.com/dankedev/kontent/domain/plugin"
-	"github.com/dankedev/kontent/domain/importer"
-	"github.com/dankedev/kontent/middleware"
-	"github.com/dankedev/kontent/storage"
-	"github.com/dankedev/kontent/utils/jwt"
-	"github.com/dankedev/kontent/routes"
+	"github.com/dankedev/tulis-go/config"
+	_ "github.com/dankedev/tulis-go/docs"
+	"github.com/dankedev/tulis-go/domain/importer"
+	"github.com/dankedev/tulis-go/domain/media"
+	"github.com/dankedev/tulis-go/domain/plugin"
+	"github.com/dankedev/tulis-go/domain/post"
+	"github.com/dankedev/tulis-go/domain/user"
+	"github.com/dankedev/tulis-go/domain/workspace"
+	"github.com/dankedev/tulis-go/middleware"
+	"github.com/dankedev/tulis-go/routes"
+	"github.com/dankedev/tulis-go/storage"
+	"github.com/dankedev/tulis-go/utils/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -42,7 +42,7 @@ func SetupApp() *fiber.App {
 
 	app.Use(recover.New())
 	app.Use(logger.New())
-	
+
 	// Add CORS middleware
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:3000, http://127.0.0.1:3000", // Adjust to match your frontend URL (e.g. 5173 for Vite, 3000 for Next.js)

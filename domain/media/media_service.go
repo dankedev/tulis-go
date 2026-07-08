@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dankedev/kontent/storage"
+	"github.com/dankedev/tulis-go/storage"
 	"github.com/google/uuid"
 )
 

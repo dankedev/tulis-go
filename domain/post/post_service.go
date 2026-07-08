@@ -6,18 +6,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dankedev/kontent/utils/helpers"
+	"github.com/dankedev/tulis-go/utils/helpers"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrPostNotFound      = errors.New("post not found")
-	ErrPostTypeNotFound  = errors.New("custom post type not found")
-	ErrPostTypeExists    = errors.New("custom post type slug already exists in this workspace")
-	ErrInvalidStatus     = errors.New("invalid status value")
-	ErrRevisionNotFound  = errors.New("revision not found")
-	ErrTaxonomyNotFound  = errors.New("taxonomy not found")
-	ErrTaxonomyExists    = errors.New("taxonomy slug already exists in this workspace for this type")
+	ErrPostNotFound     = errors.New("post not found")
+	ErrPostTypeNotFound = errors.New("custom post type not found")
+	ErrPostTypeExists   = errors.New("custom post type slug already exists in this workspace")
+	ErrInvalidStatus    = errors.New("invalid status value")
+	ErrRevisionNotFound = errors.New("revision not found")
+	ErrTaxonomyNotFound = errors.New("taxonomy not found")
+	ErrTaxonomyExists   = errors.New("taxonomy slug already exists in this workspace for this type")
 )
 
 type PostService interface {

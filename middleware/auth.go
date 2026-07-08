@@ -3,8 +3,8 @@ package middleware
 import (
 	"strings"
 
-	"github.com/dankedev/kontent/utils/jwt"
-	"github.com/dankedev/kontent/utils/response"
+	"github.com/dankedev/tulis-go/utils/jwt"
+	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 )
 

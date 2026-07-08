@@ -11,13 +11,12 @@
 //	     type: apiKey
 //	     name: Authorization
 //	     in: header
-//
 package plugin
 
 import (
+	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/dankedev/kontent/utils/response"
 )
 
 type Handler struct {

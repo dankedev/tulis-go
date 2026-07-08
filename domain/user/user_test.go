@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dankedev/kontent/domain/workspace"
-	"github.com/dankedev/kontent/middleware"
-	"github.com/dankedev/kontent/utils/jwt"
+	"github.com/dankedev/tulis-go/domain/workspace"
+	"github.com/dankedev/tulis-go/middleware"
+	"github.com/dankedev/tulis-go/utils/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"

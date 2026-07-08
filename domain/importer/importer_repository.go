@@ -3,8 +3,8 @@ package importer
 import (
 	"context"
 
-	"github.com/dankedev/kontent/domain/media"
-	"github.com/dankedev/kontent/domain/post"
+	"github.com/dankedev/tulis-go/domain/media"
+	"github.com/dankedev/tulis-go/domain/post"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

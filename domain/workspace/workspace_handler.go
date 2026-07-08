@@ -11,11 +11,10 @@
 //	     type: apiKey
 //	     name: Authorization
 //	     in: header
-//
 package workspace
 
 import (
-	"github.com/dankedev/kontent/utils/response"
+	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
