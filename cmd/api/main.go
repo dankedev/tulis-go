@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/dankedev/tulis-go/config"
-	_ "github.com/dankedev/tulis-go/docs"
 	"github.com/dankedev/tulis-go/domain/importer"
 	"github.com/dankedev/tulis-go/domain/media"
 	"github.com/dankedev/tulis-go/domain/plugin"
