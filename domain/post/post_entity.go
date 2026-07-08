@@ -24,5 +24,6 @@ type Post struct {
 	CustomFields map[string]interface{} `gorm:"serializer:json" json:"custom_fields"`
 	Taxonomies   []Taxonomy             `gorm:"many2many:post_taxonomies;" json:"taxonomies"`
 	FeatureImage string                 `gorm:"type:varchar(255)" json:"feature_image"`
+	EditedAt     time.Time              `json:"edited_at"`
 }
 

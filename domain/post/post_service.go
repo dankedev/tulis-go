@@ -141,6 +141,7 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		PublishedAt:  publishedAt,
 		CustomFields: req.CustomFields,
 		FeatureImage: req.FeatureImage,
+		EditedAt:     time.Now(),
 	}
 
 	if err := s.repo.Create(ctx, post); err != nil {
@@ -264,6 +265,14 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 	if req.FeatureImage != nil {
 		post.FeatureImage = *req.FeatureImage
 	}
+
+	if req.AuthorID != nil && *req.AuthorID != "" {
+		if uid, err := uuid.Parse(*req.AuthorID); err == nil {
+			post.AuthorID = uid
+		}
+	}
+
+	post.EditedAt = time.Now()
 
 	if err := s.repo.Update(ctx, post); err != nil {
 		return nil, err

@@ -26,6 +26,7 @@ type UpdatePostReq struct {
 	CustomFields map[string]interface{} `json:"custom_fields"`
 	TaxonomyIDs  *[]string              `json:"taxonomy_ids"` // optional taxonomy assignment updates
 	FeatureImage *string                `json:"feature_image"`
+	AuthorID     *string                `json:"author_id"`     // optional author ID update
 }
 
 type CreatePostTypeReq struct {
