@@ -46,6 +46,7 @@ func initTestEnvironment(t *testing.T) {
 }
 
 func TestHealthCheckEndpoint(t *testing.T) {
+	initTestEnvironment(t)
 	app := SetupApp()
 
 	req := httptest.NewRequest("GET", "/health", nil)
