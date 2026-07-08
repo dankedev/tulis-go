@@ -202,11 +202,12 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 
 	postType := c.Query("type", "")
 	status := c.Query("status", "")
+	search := c.Query("search", "")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "10"))
 
-	posts, total, err := h.svc.ListPosts(c.Context(), workspaceID, postType, status, page, perPage)
+	posts, total, err := h.svc.ListPosts(c.Context(), workspaceID, postType, status, search, page, perPage)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}

@@ -26,7 +26,7 @@ type PostService interface {
 	GetPostBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*Post, error)
 	UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePostReq, authorID uuid.UUID) (*Post, error)
 	DeletePost(ctx context.Context, id uuid.UUID) error
-	ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, page, perPage int) ([]Post, int64, error)
+	ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, page, perPage int) ([]Post, int64, error)
 
 	// Custom Post Type (CPT) registrations
 	RegisterPostType(ctx context.Context, workspaceID uuid.UUID, name, slug, description string, fields []CustomFieldSchema) (*PostType, error)
@@ -128,6 +128,7 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		publishedAt = req.PublishedAt
 	}
 
+	now := time.Now()
 	post := &Post{
 		ID:           uuid.New(),
 		Title:        req.Title,
@@ -141,7 +142,7 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		PublishedAt:  publishedAt,
 		CustomFields: req.CustomFields,
 		FeatureImage: req.FeatureImage,
-		EditedAt:     time.Now(),
+		EditedAt:     &now,
 	}
 
 	if err := s.repo.Create(ctx, post); err != nil {
@@ -272,7 +273,8 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 		}
 	}
 
-	post.EditedAt = time.Now()
+	now := time.Now()
+	post.EditedAt = &now
 
 	if err := s.repo.Update(ctx, post); err != nil {
 		return nil, err
@@ -313,7 +315,7 @@ func (s *postService) DeletePost(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *postService) ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, page, perPage int) ([]Post, int64, error) {
+func (s *postService) ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, page, perPage int) ([]Post, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -322,7 +324,7 @@ func (s *postService) ListPosts(ctx context.Context, workspaceID uuid.UUID, post
 	}
 
 	offset := (page - 1) * perPage
-	return s.repo.List(ctx, workspaceID, postType, status, perPage, offset)
+	return s.repo.List(ctx, workspaceID, postType, status, search, perPage, offset)
 }
 
 // CPT operations
