@@ -19,6 +19,7 @@ type Config struct {
 	JWTExpiryHours      int
 	WorkspaceRestricted  bool
 	AllowRegistration    bool
+	CORSOrigins          string
 	R2AccountID          string
 	R2AccessKey         string
 	R2SecretKey         string
@@ -43,6 +44,7 @@ func LoadConfig() {
 		JWTExpiryHours:      getEnvInt("JWT_EXPIRY_HOURS", 24),
 		WorkspaceRestricted:  getEnvBool("WORKSPACE_RESTRICTED", false),
 		AllowRegistration:    getEnvBool("ALLOW_REGISTRATION", true),
+		CORSOrigins:          getEnv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"),
 		R2AccountID:          getEnv("R2_ACCOUNT_ID", ""),
 		R2AccessKey:         getEnv("R2_ACCESS_KEY_ID", ""),
 		R2SecretKey:         getEnv("R2_SECRET_ACCESS_KEY", ""),
