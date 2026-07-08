@@ -14,7 +14,7 @@
 Thumbs.db
 
 # Build outputs
-kontent-api
+tulis-api
 *.exe
 
 # Uploads (mounted at runtime)

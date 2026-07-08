@@ -29,7 +29,7 @@ RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
 # Copy binary from builder
-COPY --from=builder /kontent-api /app/kontent-api
+COPY --from=builder /tulis-api /app/tulis-api
 
 # Copy .env file (can be overridden at runtime via volume mount)
 COPY .env.example /app/.env.example
@@ -48,4 +48,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["/app/kontent-api"]
+ENTRYPOINT ["/app/tulis-api"]
