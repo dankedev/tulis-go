@@ -98,7 +98,7 @@ func (h *ImporterHandler) Upload(c *fiber.Ctx) error {
 		"error_message": importLog.Errors,
 		"created_at":    importLog.CreatedAt,
 		"finished_at":   importLog.UpdatedAt,
-	}, "Import completed successfully")
+	}, "Import started successfully in the background")
 }
 
 // ListLogs godoc

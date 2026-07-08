@@ -94,44 +94,48 @@ func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID u
 		return nil, fmt.Errorf("failed to create import log: %w", err)
 	}
 
-	session := &importSession{
-		workspaceID: workspaceID,
-		authorID:    authorID,
-		result:      ImportResult{},
-		errors:      []string{},
-		urlMap:      make(map[string]string),
-		taxMap:      make(map[string]uuid.UUID),
-		log:         log,
-	}
+	// Process import in the background
+	go func() {
+		bgCtx := context.Background()
+		session := &importSession{
+			workspaceID: workspaceID,
+			authorID:    authorID,
+			result:      ImportResult{},
+			errors:      []string{},
+			urlMap:      make(map[string]string),
+			taxMap:      make(map[string]uuid.UUID),
+			log:         log,
+		}
 
-	if err := s.importTaxonomies(ctx, wxr.Channel, session); err != nil {
-		session.errors = append(session.errors, fmt.Sprintf("taxonomy import error: %v", err))
-	}
+		if err := s.importTaxonomies(bgCtx, wxr.Channel, session); err != nil {
+			session.errors = append(session.errors, fmt.Sprintf("taxonomy import error: %v", err))
+		}
 
-	if err := s.importAttachments(ctx, wxr.Channel.Items, session); err != nil {
-		session.errors = append(session.errors, fmt.Sprintf("media import error: %v", err))
-	}
+		if err := s.importAttachments(bgCtx, wxr.Channel.Items, session); err != nil {
+			session.errors = append(session.errors, fmt.Sprintf("media import error: %v", err))
+		}
 
-	if err := s.importPosts(ctx, wxr.Channel.Items, session); err != nil {
-		session.errors = append(session.errors, fmt.Sprintf("post import error: %v", err))
-	}
+		if err := s.importPosts(bgCtx, wxr.Channel.Items, session); err != nil {
+			session.errors = append(session.errors, fmt.Sprintf("post import error: %v", err))
+		}
 
-	session.log.Status = "completed"
-	session.log.PostsCount = session.result.PostsCount
-	session.log.PagesCount = session.result.PagesCount
-	session.log.MediaCount = session.result.MediaCount
-	session.log.TaxCount = session.result.TaxCount
-	session.log.SkippedCount = session.result.SkippedCount
+		session.log.Status = "completed"
+		session.log.PostsCount = session.result.PostsCount
+		session.log.PagesCount = session.result.PagesCount
+		session.log.MediaCount = session.result.MediaCount
+		session.log.TaxCount = session.result.TaxCount
+		session.log.SkippedCount = session.result.SkippedCount
 
-	errorsJSON, _ := json.Marshal(session.errors)
-	session.log.Errors = string(errorsJSON)
+		errorsJSON, _ := json.Marshal(session.errors)
+		session.log.Errors = string(errorsJSON)
 
-	summaryJSON, _ := json.Marshal(session.result)
-	session.log.Summary = string(summaryJSON)
+		summaryJSON, _ := json.Marshal(session.result)
+		session.log.Summary = string(summaryJSON)
 
-	s.db.WithContext(ctx).Save(session.log)
+		s.db.Save(session.log)
+	}()
 
-	return session.log, nil
+	return log, nil
 }
 
 func (s *importerService) importTaxonomies(ctx context.Context, ch WXRChannel, session *importSession) error {
