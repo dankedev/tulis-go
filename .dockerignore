@@ -21,7 +21,7 @@ kontent-api
 uploads/
 
 # Local env overrides — use .env for overrides
-.env
+# .env  # Keep in Docker build (use volume mount for production secrets)
 .env.local
 .env.*.local
 
