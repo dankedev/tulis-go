@@ -22,8 +22,9 @@ var (
 type MediaService interface {
 	SaveFile(ctx context.Context, workspaceID uuid.UUID, filename string, fileData []byte, mimeType string, size int64, altText, caption string) (*Media, error)
 	GetMediaByID(ctx context.Context, id uuid.UUID) (*Media, error)
+	UpdateMedia(ctx context.Context, id uuid.UUID, altText, caption string) (*Media, error)
 	DeleteMedia(ctx context.Context, id uuid.UUID) error
-	ListMedia(ctx context.Context, workspaceID uuid.UUID, page, perPage int) ([]Media, int64, error)
+	ListMedia(ctx context.Context, workspaceID uuid.UUID, page, perPage int, search string) ([]Media, int64, error)
 }
 
 type mediaService struct {
@@ -96,6 +97,19 @@ func (s *mediaService) GetMediaByID(ctx context.Context, id uuid.UUID) (*Media, 
 	return m, nil
 }
 
+func (s *mediaService) UpdateMedia(ctx context.Context, id uuid.UUID, altText, caption string) (*Media, error) {
+	m, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, ErrMediaNotFound
+	}
+	m.AltText = altText
+	m.Caption = caption
+	if err := s.repo.Update(ctx, m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (s *mediaService) DeleteMedia(ctx context.Context, id uuid.UUID) error {
 	m, err := s.repo.FindByID(ctx, id)
 	if err != nil {
@@ -112,7 +126,7 @@ func (s *mediaService) DeleteMedia(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *mediaService) ListMedia(ctx context.Context, workspaceID uuid.UUID, page, perPage int) ([]Media, int64, error) {
+func (s *mediaService) ListMedia(ctx context.Context, workspaceID uuid.UUID, page, perPage int, search string) ([]Media, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -121,7 +135,7 @@ func (s *mediaService) ListMedia(ctx context.Context, workspaceID uuid.UUID, pag
 	}
 
 	offset := (page - 1) * perPage
-	return s.repo.List(ctx, workspaceID, perPage, offset)
+	return s.repo.List(ctx, workspaceID, perPage, offset, search)
 }
 
 func scaleImage(src image.Image, w, h int) image.Image {

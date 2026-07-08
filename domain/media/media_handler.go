@@ -173,8 +173,9 @@ func (h *MediaHandler) List(c *fiber.Ctx) error {
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "10"))
+	search := c.Query("search", "")
 
-	mediaList, total, err := h.svc.ListMedia(c.Context(), workspaceID, page, perPage)
+	mediaList, total, err := h.svc.ListMedia(c.Context(), workspaceID, page, perPage, search)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
@@ -199,4 +200,42 @@ func (h *MediaHandler) List(c *fiber.Ctx) error {
 		"data":    mediaList,
 		"meta":    meta,
 	})
+}
+
+// Update godoc
+// @Summary Update a media item's metadata
+// @Description Updates the alt text and caption of a media item by UUID
+// @Tags Media
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path string true "Media UUID"
+// @Param body body map[string]string true "JSON body containing alt_text and caption"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/media/{id} [put]
+func (h *MediaHandler) Update(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid media ID", nil)
+	}
+
+	var req struct {
+		AltText string `json:"alt_text"`
+		Caption string `json:"caption"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	m, err := h.svc.UpdateMedia(c.Context(), id, req.AltText, req.Caption)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, m, "Media updated successfully")
 }

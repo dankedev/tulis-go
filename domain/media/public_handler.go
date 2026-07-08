@@ -47,8 +47,9 @@ func (h *PublicHandler) ListMedia(c *fiber.Ctx) error {
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "10"))
+	search := c.Query("search", "")
 
-	mediaList, total, err := h.mediaSvc.ListMedia(c.Context(), workspaceID, page, perPage)
+	mediaList, total, err := h.mediaSvc.ListMedia(c.Context(), workspaceID, page, perPage, search)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
