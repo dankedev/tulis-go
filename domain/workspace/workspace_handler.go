@@ -1,4 +1,4 @@
-// Package workspaces Kontent CMS Workspace API
+// Package workspaces Tulis CMS Workspace API
 //
 //	Workspace and member management endpoints
 //

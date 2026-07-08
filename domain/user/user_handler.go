@@ -1,6 +1,6 @@
-// Package userhandlers Kontent CMS User & Auth API
+// Package userhandlers Tulis CMS User & Auth API
 //
-//	User and authentication management for Kontent CMS
+//	User and authentication management for Tulis CMS
 //
 //	Schemes: http
 //	BasePath: /api

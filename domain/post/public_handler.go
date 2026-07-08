@@ -1,4 +1,4 @@
-// Package post Kontent CMS Public API
+// Package post Tulis CMS Public API
 //
 //	Public-facing read-only endpoints for posts and taxonomies
 //

@@ -1,31 +1,31 @@
 services:
   db:
     image: mysql:8.0
-    container_name: konten-mysql
+    container_name: tulis-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${DB_NAME:-konten_app}
-      MYSQL_USER: ${DB_USER:-kontent}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-kontentpassword}
+      MYSQL_DATABASE: ${DB_NAME:-tulis_app}
+      MYSQL_USER: ${DB_USER:-tulist}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-tulistpassword}
     ports:
       - "${DB_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     networks:
-      - konten-net
+      - tulis-net
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: konten-api
+    container_name: tulis-api
     restart: unless-stopped
     depends_on:
       db:
@@ -35,9 +35,9 @@ services:
       APP_PORT: ${APP_PORT:-8080}
       DB_HOST: db
       DB_PORT: "3306"
-      DB_USER: ${DB_USER:-kontent}
-      DB_PASSWORD: ${DB_PASSWORD:-kontentpassword}
-      DB_NAME: ${DB_NAME:-konten_app}
+      DB_USER: ${DB_USER:-tulist}
+      DB_PASSWORD: ${DB_PASSWORD:-tulistpassword}
+      DB_NAME: ${DB_NAME:-tulis_app}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
     ports:
@@ -45,18 +45,18 @@ services:
     volumes:
       - ./uploads:/app/uploads
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health" ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
     networks:
-      - konten-net
+      - tulis-net
 
 volumes:
   mysql_data:
     driver: local
 
 networks:
-  konten-net:
+  tulis-net:
     driver: bridge

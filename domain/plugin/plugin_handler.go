@@ -1,4 +1,4 @@
-// Package plugin Kontent CMS Plugin API
+// Package plugin Tulis CMS Plugin API
 //
 //	Plugin listing, toggle, and settings management
 //

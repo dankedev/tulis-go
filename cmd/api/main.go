@@ -192,25 +192,34 @@ func main() {
 	// Setup shutdown channel
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+	log.Printf("[STARTUP] Server listening on port %s, PID: %d", config.AppConfig.AppPort, os.Getpid())
 
 	// Start server in goroutine
 	go func() {
 		port := config.AppConfig.AppPort
+		log.Printf("[SERVER] Starting HTTP server on :%s", port)
 		if err := app.Listen(":" + port); err != nil {
-			log.Printf("Server failed to serve: %v", err)
+			log.Printf("[SERVER] Server stopped serving: %v", err)
 		}
 	}()
 
 	// Wait for shutdown signal
-	<-shutdown
-	fmt.Println("Shutting down server gracefully...")
+	sig := <-shutdown
+	log.Printf("[SHUTDOWN] Received signal: %v", sig)
 
 	// Create context with timeout for graceful shutdown
-	_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := app.Shutdown(); err != nil {
-		log.Fatalf("Graceful shutdown failed: %v", err)
+	log.Printf("[SHUTDOWN] Initiating graceful shutdown (timeout: 10s)...")
+
+	if err := app.ShutdownWithContext(shutdownCtx); err != nil {
+		log.Printf("[SHUTDOWN] Graceful shutdown error: %v", err)
+		if shutdownCtx.Err() == context.DeadlineExceeded {
+			log.Printf("[SHUTDOWN] Shutdown timed out - forcing exit")
+		}
+	} else {
+		log.Printf("[SHUTDOWN] All connections closed gracefully")
 	}
-	fmt.Println("Server gracefully stopped")
+	log.Printf("[SHUTDOWN] Server stopped")
 }

@@ -1,4 +1,4 @@
-// Package media Kontent CMS Public Media API
+// Package media Tulis CMS Public Media API
 //
 //	Public-facing read-only media endpoints
 //

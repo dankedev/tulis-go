@@ -1,4 +1,4 @@
-// Package importer Kontent CMS Importer API
+// Package importer Tulis CMS Importer API
 //
 //	WordPress WXR import management
 //

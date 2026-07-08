@@ -1,4 +1,4 @@
-// Package media Kontent CMS Media API
+// Package media Tulis CMS Media API
 //
 //	Media library upload and management
 //

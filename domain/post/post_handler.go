@@ -1,4 +1,4 @@
-// Package post Kontent CMS Post & Taxonomy API
+// Package post Tulis CMS Post & Taxonomy API
 //
 //	Post, custom post type, revision, and taxonomy management
 //
