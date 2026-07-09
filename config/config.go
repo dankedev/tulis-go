@@ -26,6 +26,12 @@ type Config struct {
 	R2BucketName        string
 	R2PublicURL         string
 	APIHost             string
+	SMTPHost            string
+	SMTPPort            int
+	SMTPUser            string
+	SMTPPassword        string
+	SMTPFrom            string
+	SMTPFromName        string
 }
 
 var AppConfig *Config
@@ -37,7 +43,7 @@ func LoadConfig() {
 		AppEnv:              getEnv("APP_ENV", "development"),
 		AppPort:             getEnv("APP_PORT", "8080"),
 		DBHost:              getEnv("DB_HOST", "127.0.0.1"),
-		DBPort:              getEnv("DB_PORT", "3306"),
+		DBPort:             getEnv("DB_PORT", "3306"),
 		DBUser:              getEnv("DB_USER", "root"),
 		DBPassword:          getEnv("DB_PASSWORD", ""),
 		DBName:              getEnv("DB_NAME", "kontent"),
@@ -52,6 +58,12 @@ func LoadConfig() {
 		R2BucketName:        getEnv("R2_BUCKET_NAME", ""),
 		R2PublicURL:         getEnv("R2_PUBLIC_URL", ""),
 		APIHost:             getEnv("API_HOST", "api.tulis.org"),
+		SMTPHost:            getEnv("SMTP_HOST", "localhost"),
+		SMTPPort:            getEnvInt("SMTP_PORT", 1025),
+		SMTPUser:            getEnv("SMTP_USER", ""),
+		SMTPPassword:        getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:            getEnv("SMTP_FROM", "hello@tulis.org"),
+		SMTPFromName:        getEnv("SMTP_FROM_NAME", "Tulis CMS"),
 	}
 }
 

@@ -339,3 +339,123 @@ func (h *WorkspaceHandler) RemoveMember(c *fiber.Ctx) error {
 
 	return response.Success(c, nil, "Member removed successfully")
 }
+
+// InviteMember godoc
+// @Summary Invite collaborator to workspace
+// @Description Sends email invitation to join workspace
+// @Tags Workspace Invitations
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Workspace UUID"
+// @Param request body map[string]string true "Email and role"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/workspaces/{id}/invitations [post]
+func (h *WorkspaceHandler) InviteMember(c *fiber.Ctx) error {
+	wsIDStr := c.Params("id")
+	wsID, err := uuid.Parse(wsIDStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	type InviteMemberReq struct {
+		Email string `json:"email"`
+		Role  string `json:"role"`
+	}
+
+	var req InviteMemberReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	if req.Email == "" {
+		return response.Error(c, "VALIDATION_ERROR", "Email is required", nil)
+	}
+
+	if req.Role == "" {
+		req.Role = "subscriber"
+	}
+
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	inviterUserID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	invite, err := h.svc.InviteMember(c.Context(), wsID, inviterUserID, req.Email, req.Role)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, invite, "Invitation sent successfully")
+}
+
+// GetInvitation godoc
+// @Summary View invitation details
+// @Description Returns public details of an invitation by token
+// @Tags Workspace Invitations
+// @Produce json
+// @Param token path string true "Invitation Token"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/invitations/{token} [get]
+func (h *WorkspaceHandler) GetInvitation(c *fiber.Ctx) error {
+	token := c.Params("token")
+	if token == "" {
+		return response.Error(c, "BAD_REQUEST", "Token is required", nil)
+	}
+
+	invite, err := h.svc.GetInvitationByToken(c.Context(), token)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", "Invitation not found or expired", nil)
+	}
+
+	ws, err := h.svc.GetWorkspaceByID(c.Context(), invite.WorkspaceID)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", "Workspace not found", nil)
+	}
+
+	return response.Success(c, fiber.Map{
+		"id":             invite.ID,
+		"workspace_id":   invite.WorkspaceID,
+		"workspace_name": ws.Name,
+		"email":          invite.Email,
+		"role":           invite.Role,
+		"status":         invite.Status,
+		"expires_at":     invite.ExpiresAt,
+	}, "Invitation details retrieved")
+}
+
+// AcceptInvitation godoc
+// @Summary Accept workspace invitation
+// @Description Joins the workspace using the invitation token
+// @Tags Workspace Invitations
+// @Security BearerAuth
+// @Param token path string true "Invitation Token"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/invitations/{token}/accept [post]
+func (h *WorkspaceHandler) AcceptInvitation(c *fiber.Ctx) error {
+	token := c.Params("token")
+	if token == "" {
+		return response.Error(c, "BAD_REQUEST", "Token is required", nil)
+	}
+
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	userID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	member, err := h.svc.AcceptInvitation(c.Context(), token, userID)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, member, "Invitation accepted, welcome to the workspace!")
+}
+

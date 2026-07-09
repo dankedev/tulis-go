@@ -3,10 +3,13 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/dankedev/tulis-go/utils/jwt"
+	"github.com/dankedev/tulis-go/utils/mail"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,6 +33,10 @@ type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
+	VerifyEmail(ctx context.Context, token string) error
+	RequestPasswordReset(ctx context.Context, email string) error
+	ResetPassword(ctx context.Context, token, newPassword string) error
+	ListUsers(ctx context.Context) ([]User, error)
 }
 
 type userService struct {
@@ -58,10 +65,16 @@ func (s *userService) Register(ctx context.Context, user *User, password string)
 	if user.Role == "" {
 		user.Role = "subscriber"
 	}
+	user.VerificationToken = uuid.New().String()
 
 	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, err
 	}
+
+	// Send branded verification email in background
+	verifyLink := fmt.Sprintf("https://app.tulis.org/verify-email?token=%s", user.VerificationToken)
+	emailBody := mail.GetVerificationEmail(user.Name, verifyLink)
+	go mail.SendHTMLMail(user.Email, "Konfirmasi Email Anda - Tulis CMS", emailBody)
 
 	return user, nil
 }
@@ -82,6 +95,7 @@ func (s *userService) RegisterWithWorkspace(ctx context.Context, user *User, pas
 	if user.Role == "" {
 		user.Role = "superadmin"
 	}
+	user.VerificationToken = uuid.New().String()
 
 	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, "", nil, err
@@ -111,8 +125,13 @@ func (s *userService) RegisterWithWorkspace(ctx context.Context, user *User, pas
 		Role:        "superadmin",
 	}
 	if err := s.workspaceRepo.AddMember(ctx, member); err != nil {
-		// Log error or handle it, but return user, token, ws
+		// Log error or handle it
 	}
+
+	// Send branded verification email in background
+	verifyLink := fmt.Sprintf("https://app.tulis.org/verify-email?token=%s", user.VerificationToken)
+	emailBody := mail.GetVerificationEmail(user.Name, verifyLink)
+	go mail.SendHTMLMail(user.Email, "Konfirmasi Email Anda - Tulis CMS", emailBody)
 
 	return user, token, ws, nil
 }
@@ -126,6 +145,11 @@ func (s *userService) Login(ctx context.Context, email, password string) (*User,
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, "", ErrInvalidPassword
 	}
+
+	// Update last login
+	now := time.Now()
+	user.LastLoginAt = &now
+	_ = s.repo.Update(ctx, user)
 
 	token, err := s.jwtSvc.GenerateToken(user.ID.String())
 	if err != nil {
@@ -171,5 +195,81 @@ func (s *userService) ChangePassword(ctx context.Context, userID uuid.UUID, oldP
 	}
 
 	user.PasswordHash = string(hashedPassword)
+	
+	if err := s.repo.Update(ctx, user); err != nil {
+		return err
+	}
+
+	// Send notification email that password was changed
+	emailBody := mail.GetGeneralNotificationEmail(user.Name, "Password Berhasil Diubah", "Password akun Tulis CMS Anda baru saja diubah. Jika ini bukan tindakan Anda, silakan hubungi tim keamanan kami segera.")
+	go mail.SendHTMLMail(user.Email, "Keamanan: Password Akun Diubah", emailBody)
+
+	return nil
+}
+
+func (s *userService) VerifyEmail(ctx context.Context, token string) error {
+	user, err := s.repo.FindByVerificationToken(ctx, token)
+	if err != nil {
+		return errors.New("token verifikasi tidak valid")
+	}
+	now := time.Now()
+	user.EmailVerifiedAt = &now
+	user.VerificationToken = ""
 	return s.repo.Update(ctx, user)
 }
+
+func (s *userService) RequestPasswordReset(ctx context.Context, email string) error {
+	user, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	
+	token := uuid.New().String()
+	expiry := time.Now().Add(1 * time.Hour)
+	user.ResetPasswordToken = token
+	user.ResetPasswordExpiresAt = &expiry
+
+	if err := s.repo.Update(ctx, user); err != nil {
+		return err
+	}
+
+	resetLink := fmt.Sprintf("https://app.tulis.org/reset-password?token=%s", token)
+	emailBody := mail.GetPasswordResetEmail(user.Name, resetLink)
+	go mail.SendHTMLMail(user.Email, "Reset Password Akun Anda - Tulis CMS", emailBody)
+
+	return nil
+}
+
+func (s *userService) ResetPassword(ctx context.Context, token, newPassword string) error {
+	user, err := s.repo.FindByResetToken(ctx, token)
+	if err != nil {
+		return errors.New("token reset tidak valid")
+	}
+
+	if user.ResetPasswordExpiresAt == nil || user.ResetPasswordExpiresAt.Before(time.Now()) {
+		return errors.New("token reset password telah kedaluwarsa")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	user.PasswordHash = string(hashedPassword)
+	user.ResetPasswordToken = ""
+	user.ResetPasswordExpiresAt = nil
+
+	if err := s.repo.Update(ctx, user); err != nil {
+		return err
+	}
+
+	emailBody := mail.GetGeneralNotificationEmail(user.Name, "Password Berhasil Diubah", "Password akun Tulis CMS Anda telah berhasil diatur ulang. Anda sekarang dapat masuk kembali menggunakan password baru Anda.")
+	go mail.SendHTMLMail(user.Email, "Keamanan: Password Akun Diubah", emailBody)
+
+	return nil
+}
+
+func (s *userService) ListUsers(ctx context.Context) ([]User, error) {
+	return s.repo.ListAll(ctx)
+}
+

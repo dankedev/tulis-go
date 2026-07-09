@@ -3,8 +3,11 @@ package workspace
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
+	"github.com/dankedev/tulis-go/utils/mail"
 	"github.com/google/uuid"
 )
 
@@ -29,6 +32,11 @@ type WorkspaceService interface {
 	UpdateMemberRole(ctx context.Context, workspaceID, userID uuid.UUID, role string) (*WorkspaceMember, error)
 	RemoveMember(ctx context.Context, workspaceID, userID uuid.UUID) error
 	ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error)
+
+	// Invitations
+	InviteMember(ctx context.Context, workspaceID, inviterUserID uuid.UUID, email, role string) (*WorkspaceInvitation, error)
+	GetInvitationByToken(ctx context.Context, token string) (*WorkspaceInvitation, error)
+	AcceptInvitation(ctx context.Context, token string, userID uuid.UUID) (*WorkspaceMember, error)
 }
 
 type workspaceService struct {
@@ -188,3 +196,73 @@ func (s *workspaceService) RemoveMember(ctx context.Context, workspaceID, userID
 func (s *workspaceService) ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error) {
 	return s.repo.ListMembers(ctx, workspaceID)
 }
+
+func (s *workspaceService) InviteMember(ctx context.Context, workspaceID, inviterUserID uuid.UUID, email, role string) (*WorkspaceInvitation, error) {
+	ws, err := s.repo.FindByID(ctx, workspaceID)
+	if err != nil {
+		return nil, ErrWorkspaceNotFound
+	}
+
+	inviterName := "Seorang anggota tim"
+	if member, err := s.repo.GetMember(ctx, workspaceID, inviterUserID); err == nil && member.User != nil && member.User.Name != "" {
+		inviterName = member.User.Name
+	}
+
+	token := uuid.New().String()
+	invite := &WorkspaceInvitation{
+		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
+		Email:       email,
+		Role:        role,
+		Token:       token,
+		ExpiresAt:   time.Now().Add(7 * 24 * time.Hour), // 7 days expiration
+		Status:      "pending",
+	}
+
+	if err := s.repo.CreateInvitation(ctx, invite); err != nil {
+		return nil, err
+	}
+
+	// Send branded email invitation in background
+	inviteLink := fmt.Sprintf("https://app.tulis.org/invitation/accept?token=%s", token)
+	registerLink := "https://app.tulis.org/register"
+	emailBody := mail.GetInvitationEmail(ws.Name, inviterName, inviteLink, registerLink)
+	go mail.SendHTMLMail(email, fmt.Sprintf("Undangan kolaborasi di workspace %s - Tulis CMS", ws.Name), emailBody)
+
+	return invite, nil
+}
+
+func (s *workspaceService) GetInvitationByToken(ctx context.Context, token string) (*WorkspaceInvitation, error) {
+	return s.repo.GetInvitationByToken(ctx, token)
+}
+
+func (s *workspaceService) AcceptInvitation(ctx context.Context, token string, userID uuid.UUID) (*WorkspaceMember, error) {
+	invite, err := s.repo.GetInvitationByToken(ctx, token)
+	if err != nil {
+		return nil, errors.New("undangan tidak ditemukan")
+	}
+
+	if invite.Status != "pending" {
+		return nil, fmt.Errorf("undangan ini telah %s", invite.Status)
+	}
+
+	if invite.ExpiresAt.Before(time.Now()) {
+		invite.Status = "expired"
+		_ = s.repo.UpdateInvitation(ctx, invite)
+		return nil, errors.New("undangan telah kedaluwarsa")
+	}
+
+	invite.Status = "accepted"
+	if err := s.repo.UpdateInvitation(ctx, invite); err != nil {
+		return nil, err
+	}
+
+	// Add user to workspace
+	member, err := s.AddMember(ctx, invite.WorkspaceID, userID, invite.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	return member, nil
+}
+

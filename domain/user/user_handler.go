@@ -324,3 +324,82 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 
 	return response.Success(c, nil, "Password changed successfully")
 }
+
+// VerifyEmail godoc
+// @Summary Verify email address
+// @Description Verifies a user's email using verification token
+// @Tags Auth
+// @Param token query string true "Verification Token"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/verify-email [get]
+func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
+	token := c.Query("token")
+	if token == "" {
+		return response.Error(c, "BAD_REQUEST", "Token verifikasi wajib diisi", nil)
+	}
+
+	if err := h.userSvc.VerifyEmail(c.Context(), token); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "Email Anda berhasil diverifikasi")
+}
+
+// RequestPasswordReset godoc
+// @Summary Request password reset
+// @Description Sends password reset link to user's email
+// @Tags Auth
+// @Param request body map[string]string true "User email"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/forgot-password [post]
+func (h *AuthHandler) RequestPasswordReset(c *fiber.Ctx) error {
+	type Req struct {
+		Email string `json:"email"`
+	}
+	var req Req
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Format request tidak valid", nil)
+	}
+
+	if req.Email == "" {
+		return response.Error(c, "VALIDATION_ERROR", "Email wajib diisi", nil)
+	}
+
+	if err := h.userSvc.RequestPasswordReset(c.Context(), req.Email); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "Link reset password telah dikirim ke email Anda")
+}
+
+// ResetPassword godoc
+// @Summary Reset password
+// @Description Resets user password using reset token
+// @Tags Auth
+// @Param request body map[string]string true "Token and new password"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
+	type Req struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+	var req Req
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Format request tidak valid", nil)
+	}
+
+	if req.Token == "" || req.NewPassword == "" {
+		return response.Error(c, "VALIDATION_ERROR", "Token dan password baru wajib diisi", nil)
+	}
+
+	if err := h.userSvc.ResetPassword(c.Context(), req.Token, req.NewPassword); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "Password Anda berhasil diperbarui")
+}
+

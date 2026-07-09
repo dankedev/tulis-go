@@ -8,6 +8,9 @@ import (
 func RegisterUserPublicRoutes(api fiber.Router, userHandler *user.AuthHandler) {
 	api.Post("/register", userHandler.Register)
 	api.Post("/login", userHandler.Login)
+	api.Get("/verify-email", userHandler.VerifyEmail)
+	api.Post("/forgot-password", userHandler.RequestPasswordReset)
+	api.Post("/reset-password", userHandler.ResetPassword)
 }
 
 func RegisterUserAuthRoutes(authGroup fiber.Router, userHandler *user.AuthHandler) {
