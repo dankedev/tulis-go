@@ -24,4 +24,6 @@ type User struct {
 	ResetPasswordExpiresAt *time.Time     `json:"-"`
 	LastLoginReminderSentAt *time.Time    `json:"-"`
 	LastWriteReminderSentAt *time.Time    `json:"-"`
+	AuthProvider            string        `json:"auth_provider" gorm:"type:varchar(50)"`
+	AuthProviderID         string        `json:"auth_provider_id" gorm:"type:varchar(255)"`
 }

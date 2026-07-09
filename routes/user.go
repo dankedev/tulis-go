@@ -15,8 +15,13 @@ func RegisterUserPublicRoutes(api fiber.Router, userHandler *user.AuthHandler) {
 }
 
 func RegisterUserAuthRoutes(authGroup fiber.Router, userHandler *user.AuthHandler) {
-	// User profile (only requires authentication)
 	authGroup.Get("/me", userHandler.Me)
 	authGroup.Put("/me", userHandler.UpdateProfile)
 	authGroup.Put("/me/password", userHandler.ChangePassword)
+}
+
+func RegisterOAuthRoutes(api fiber.Router, oauthHandler *user.OAuthHandler) {
+	auth := api.Group("/auth")
+	auth.Get("/:provider", oauthHandler.OAuthRedirect)
+	auth.Get("/:provider/callback", oauthHandler.OAuthCallback)
 }

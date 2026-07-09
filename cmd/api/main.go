@@ -71,6 +71,8 @@ func SetupApp() *fiber.App {
 		userRepo := user.NewUserRepository(config.DB)
 		userSvc := user.NewUserService(userRepo, wsRepo, jwtSvc)
 		userHandler := user.NewAuthHandler(userSvc)
+		oauthSvc := user.NewOAuthService(userRepo, wsRepo, jwtSvc)
+		oauthHandler := user.NewOAuthHandler(oauthSvc)
 
 		postRepo := post.NewPostRepository(config.DB)
 		postSvc := post.NewPostService(postRepo)
@@ -137,6 +139,7 @@ func SetupApp() *fiber.App {
 		api := app.Group("/api")
 		routes.RegisterUserPublicRoutes(api, userHandler)
 		routes.RegisterWorkspacePublicRoutes(api, wsHandler)
+		routes.RegisterOAuthRoutes(api, oauthHandler)
 
 		authGroup := api.Group("")
 		authGroup.Use(middleware.AuthGuard(jwtSvc))

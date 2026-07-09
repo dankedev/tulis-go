@@ -32,6 +32,15 @@ type Config struct {
 	SMTPPassword        string
 	SMTPFrom            string
 	SMTPFromName        string
+	GoogleClientID      string
+	GoogleClientSecret  string
+	GoogleRedirectURL   string
+	GitHubClientID      string
+	GitHubClientSecret  string
+	GitHubRedirectURL   string
+	GitLabClientID      string
+	GitLabClientSecret  string
+	GitLabRedirectURL   string
 }
 
 var AppConfig *Config
@@ -64,6 +73,15 @@ func LoadConfig() {
 		SMTPPassword:        getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:            getEnv("SMTP_FROM", "hello@tulis.org"),
 		SMTPFromName:        getEnv("SMTP_FROM_NAME", "Tulis CMS"),
+		GoogleClientID:      getEnv("GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:  getEnv("GOOGLE_CLIENT_SECRET", ""),
+		GoogleRedirectURL:   getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/api/auth/google/callback"),
+		GitHubClientID:      getEnv("GITHUB_CLIENT_ID", ""),
+		GitHubClientSecret:  getEnv("GITHUB_CLIENT_SECRET", ""),
+		GitHubRedirectURL:   getEnv("GITHUB_REDIRECT_URL", "http://localhost:8080/api/auth/github/callback"),
+		GitLabClientID:      getEnv("GITLAB_CLIENT_ID", ""),
+		GitLabClientSecret:  getEnv("GITLAB_CLIENT_SECRET", ""),
+		GitLabRedirectURL:   getEnv("GITLAB_REDIRECT_URL", "http://localhost:8080/api/auth/gitlab/callback"),
 	}
 }
 
