@@ -11,6 +11,7 @@ func RegisterUserPublicRoutes(api fiber.Router, userHandler *user.AuthHandler) {
 	api.Get("/verify-email", userHandler.VerifyEmail)
 	api.Post("/forgot-password", userHandler.RequestPasswordReset)
 	api.Post("/reset-password", userHandler.ResetPassword)
+	api.Post("/register/invitation", userHandler.RegisterByInvitation)
 }
 
 func RegisterUserAuthRoutes(authGroup fiber.Router, userHandler *user.AuthHandler) {

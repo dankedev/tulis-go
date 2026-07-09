@@ -26,6 +26,7 @@ type WorkspaceRepository interface {
 	CreateInvitation(ctx context.Context, invite *WorkspaceInvitation) error
 	GetInvitationByToken(ctx context.Context, token string) (*WorkspaceInvitation, error)
 	UpdateInvitation(ctx context.Context, invite *WorkspaceInvitation) error
+	ListInvitations(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceInvitation, error)
 }
 
 type workspaceRepository struct {
@@ -186,5 +187,11 @@ func (r *workspaceRepository) GetInvitationByToken(ctx context.Context, token st
 
 func (r *workspaceRepository) UpdateInvitation(ctx context.Context, invite *WorkspaceInvitation) error {
 	return r.db.WithContext(ctx).Save(invite).Error
+}
+
+func (r *workspaceRepository) ListInvitations(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceInvitation, error) {
+	var invites []WorkspaceInvitation
+	err := r.db.WithContext(ctx).Where("workspace_id = ? AND deleted_at IS NULL", workspaceID).Find(&invites).Error
+	return invites, err
 }
 

@@ -459,3 +459,28 @@ func (h *WorkspaceHandler) AcceptInvitation(c *fiber.Ctx) error {
 	return response.Success(c, member, "Invitation accepted, welcome to the workspace!")
 }
 
+// ListInvitations godoc
+// @Summary List workspace invitations
+// @Description Returns all invitations sent by this workspace
+// @Tags Workspace Invitations
+// @Security BearerAuth
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param id path string true "Workspace UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/workspaces/{id}/invitations [get]
+func (h *WorkspaceHandler) ListInvitations(c *fiber.Ctx) error {
+	wsIDStr := c.Params("id")
+	wsID, err := uuid.Parse(wsIDStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	invites, err := h.svc.ListInvitations(c.Context(), wsID)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, invites, "Workspace invitations retrieved successfully")
+}
+
+

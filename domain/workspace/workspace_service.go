@@ -37,6 +37,7 @@ type WorkspaceService interface {
 	InviteMember(ctx context.Context, workspaceID, inviterUserID uuid.UUID, email, role string) (*WorkspaceInvitation, error)
 	GetInvitationByToken(ctx context.Context, token string) (*WorkspaceInvitation, error)
 	AcceptInvitation(ctx context.Context, token string, userID uuid.UUID) (*WorkspaceMember, error)
+	ListInvitations(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceInvitation, error)
 }
 
 type workspaceService struct {
@@ -264,5 +265,9 @@ func (s *workspaceService) AcceptInvitation(ctx context.Context, token string, u
 	}
 
 	return member, nil
+}
+
+func (s *workspaceService) ListInvitations(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceInvitation, error) {
+	return s.repo.ListInvitations(ctx, workspaceID)
 }
 

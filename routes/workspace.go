@@ -31,4 +31,5 @@ func RegisterWorkspaceMemberRoutes(tenantGroup fiber.Router, wsHandler *workspac
 
 	// Invite member (requires workspace context)
 	tenantGroup.Post("/workspaces/:id/invitations", wsHandler.InviteMember)
+	tenantGroup.Get("/workspaces/:id/invitations", wsHandler.ListInvitations)
 }

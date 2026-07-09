@@ -23,6 +23,8 @@ var (
 type WorkspaceRepository interface {
 	Create(ctx context.Context, ws *workspace.Workspace) error
 	AddMember(ctx context.Context, member *workspace.WorkspaceMember) error
+	GetInvitationByToken(ctx context.Context, token string) (*workspace.WorkspaceInvitation, error)
+	UpdateInvitation(ctx context.Context, invite *workspace.WorkspaceInvitation) error
 }
 
 type UserService interface {
@@ -36,6 +38,7 @@ type UserService interface {
 	VerifyEmail(ctx context.Context, token string) error
 	RequestPasswordReset(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, newPassword string) error
+	RegisterWithInvitation(ctx context.Context, token, name, password string) (*User, string, *workspace.WorkspaceMember, error)
 	ListUsers(ctx context.Context) ([]User, error)
 }
 
@@ -272,4 +275,69 @@ func (s *userService) ResetPassword(ctx context.Context, token, newPassword stri
 func (s *userService) ListUsers(ctx context.Context) ([]User, error) {
 	return s.repo.ListAll(ctx)
 }
+
+func (s *userService) RegisterWithInvitation(ctx context.Context, token, name, password string) (*User, string, *workspace.WorkspaceMember, error) {
+	invite, err := s.workspaceRepo.GetInvitationByToken(ctx, token)
+	if err != nil {
+		return nil, "", nil, errors.New("undangan tidak ditemukan")
+	}
+
+	if invite.Status != "pending" {
+		return nil, "", nil, fmt.Errorf("undangan ini telah %s", invite.Status)
+	}
+
+	if invite.ExpiresAt.Before(time.Now()) {
+		invite.Status = "expired"
+		_ = s.workspaceRepo.UpdateInvitation(ctx, invite)
+		return nil, "", nil, errors.New("undangan telah kedaluwarsa")
+	}
+
+	existing, _ := s.repo.FindByEmail(ctx, invite.Email)
+	if existing != nil {
+		return nil, "", nil, ErrEmailExists
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	now := time.Now()
+	u := &User{
+		ID:              uuid.New(),
+		Name:            name,
+		Email:           invite.Email,
+		PasswordHash:    string(hashedPassword),
+		Role:            "subscriber",
+		EmailVerifiedAt: &now,
+		LastLoginAt:     &now,
+	}
+
+	if err := s.repo.Create(ctx, u); err != nil {
+		return nil, "", nil, err
+	}
+
+	invite.Status = "accepted"
+	if err := s.workspaceRepo.UpdateInvitation(ctx, invite); err != nil {
+		return nil, "", nil, err
+	}
+
+	member := &workspace.WorkspaceMember{
+		ID:          uuid.New(),
+		WorkspaceID: invite.WorkspaceID,
+		UserID:      u.ID,
+		Role:        invite.Role,
+	}
+	if err := s.workspaceRepo.AddMember(ctx, member); err != nil {
+		return nil, "", nil, err
+	}
+
+	jwtToken, err := s.jwtSvc.GenerateToken(u.ID.String())
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	return u, jwtToken, member, nil
+}
+
 

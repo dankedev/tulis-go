@@ -1853,6 +1853,51 @@
                 }
             }
         },
+        "/api/register/invitation": {
+            "post": {
+                "description": "Creates a new user account using invitation token (allowed even if global registration is disabled)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register user by workspace invitation",
+                "parameters": [
+                    {
+                        "description": "Token, name, and password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/reset-password": {
             "post": {
                 "description": "Resets user password using reset token",

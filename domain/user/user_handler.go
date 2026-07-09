@@ -403,3 +403,51 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 	return response.Success(c, nil, "Password Anda berhasil diperbarui")
 }
 
+// RegisterByInvitation godoc
+// @Summary Register user by workspace invitation
+// @Description Creates a new user account using invitation token (allowed even if global registration is disabled)
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Token, name, and password"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/register/invitation [post]
+func (h *AuthHandler) RegisterByInvitation(c *fiber.Ctx) error {
+	type Req struct {
+		Token    string `json:"token"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
+	}
+	var req Req
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Format request tidak valid", nil)
+	}
+
+	if req.Token == "" || req.Name == "" || req.Password == "" {
+		return response.Error(c, "VALIDATION_ERROR", "Token, name, dan password wajib diisi", nil)
+	}
+
+	user, token, member, err := h.userSvc.RegisterWithInvitation(c.Context(), req.Token, req.Name, req.Password)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, fiber.Map{
+		"token": token,
+		"user": fiber.Map{
+			"id":         user.ID,
+			"name":       user.Name,
+			"email":      user.Email,
+			"role":       user.Role,
+			"created_at": user.CreatedAt,
+		},
+		"member": fiber.Map{
+			"id":           member.ID,
+			"workspace_id": member.WorkspaceID,
+			"role":         member.Role,
+		},
+	}, "Pendaftaran via undangan berhasil")
+}
+
+

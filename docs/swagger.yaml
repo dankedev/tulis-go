@@ -1423,6 +1423,37 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /api/register/invitation:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account using invitation token (allowed even
+        if global registration is disabled)
+      parameters:
+      - description: Token, name, and password
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register user by workspace invitation
+      tags:
+      - Auth
   /api/reset-password:
     post:
       description: Resets user password using reset token

@@ -32,6 +32,19 @@ func (m *mockWorkspaceRepo) AddMember(ctx context.Context, member *workspace.Wor
 	return nil
 }
 
+func (m *mockWorkspaceRepo) GetInvitationByToken(ctx context.Context, token string) (*workspace.WorkspaceInvitation, error) {
+	var invite workspace.WorkspaceInvitation
+	err := m.db.WithContext(ctx).Where("token = ?", token).First(&invite).Error
+	if err != nil {
+		return nil, err
+	}
+	return &invite, nil
+}
+
+func (m *mockWorkspaceRepo) UpdateInvitation(ctx context.Context, invite *workspace.WorkspaceInvitation) error {
+	return m.db.WithContext(ctx).Save(invite).Error
+}
+
 func setupTestDB(t *testing.T) (*gorm.DB, UserService, *AuthHandler, jwt.JWTService) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
