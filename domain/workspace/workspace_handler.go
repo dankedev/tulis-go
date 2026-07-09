@@ -483,4 +483,36 @@ func (h *WorkspaceHandler) ListInvitations(c *fiber.Ctx) error {
 	return response.Success(c, invites, "Workspace invitations retrieved successfully")
 }
 
+// RevokeInvitation godoc
+// @Summary Revoke / Cancel workspace invitation
+// @Description Cancels a pending invitation
+// @Tags Workspace Invitations
+// @Security BearerAuth
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param id path string true "Workspace UUID"
+// @Param inviteId path string true "Invitation UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/workspaces/{id}/invitations/{inviteId} [delete]
+func (h *WorkspaceHandler) RevokeInvitation(c *fiber.Ctx) error {
+	wsIDStr := c.Params("id")
+	wsID, err := uuid.Parse(wsIDStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	inviteIDStr := c.Params("inviteId")
+	inviteID, err := uuid.Parse(inviteIDStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid invitation ID", nil)
+	}
+
+	err = h.svc.RevokeInvitation(c.Context(), wsID, inviteID)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "Undangan berhasil dibatalkan")
+}
+
+
 

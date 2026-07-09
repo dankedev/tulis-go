@@ -29,6 +29,7 @@ type WorkspaceRepository interface {
 	UpdateInvitation(ctx context.Context, invite *WorkspaceInvitation) error
 	ListInvitations(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceInvitation, error)
 	GetPendingInvitationByEmail(ctx context.Context, workspaceID uuid.UUID, email string) (*WorkspaceInvitation, error)
+	DeleteInvitation(ctx context.Context, workspaceID, invitationID uuid.UUID) error
 }
 
 type workspaceRepository struct {
@@ -206,5 +207,11 @@ func (r *workspaceRepository) GetPendingInvitationByEmail(ctx context.Context, w
 		return nil, err
 	}
 	return &invite, nil
+}
+
+func (r *workspaceRepository) DeleteInvitation(ctx context.Context, workspaceID, invitationID uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Where("id = ? AND workspace_id = ?", invitationID, workspaceID).
+		Delete(&WorkspaceInvitation{}).Error
 }
 
