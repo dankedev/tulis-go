@@ -1,14 +1,14 @@
-package mail
+package user
 
 import (
 	"time"
 
-	"github.com/dankedev/tulis-go/domain/user"
+	"github.com/dankedev/tulis-go/utils/mail"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-// StartNotificationScheduler starts the background loop to check for user inactivity
+// StartNotificationScheduler starts the background loop to check for user inactivity.
 func StartNotificationScheduler(db *gorm.DB) {
 	if db == nil {
 		logrus.Warn("[SCHEDULER] Database connection is nil, background email scheduler not started")
@@ -30,13 +30,8 @@ func StartNotificationScheduler(db *gorm.DB) {
 	}()
 }
 
-// timeHelper is a small wrapper to allow sleep duration
-func SleepDuration(d time.Duration) time.Duration {
-	return d
-}
-
 func check7DaysLoginInactivity(db *gorm.DB) {
-	var users []user.User
+	var users []User
 	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
 
 	// Query users who haven't logged in for 7 days and haven't been sent a reminder since last login
@@ -57,8 +52,8 @@ func check7DaysLoginInactivity(db *gorm.DB) {
 	logrus.Infof("[SCHEDULER] Found %d users inactive for 7 days", len(users))
 	now := time.Now()
 	for _, u := range users {
-		emailBody := Get7DaysInactiveEmail(u.Name)
-		err := SendHTMLMail(u.Email, "Lama tidak berjumpa di Tulis CMS!", emailBody)
+		emailBody := mail.Get7DaysInactiveEmail(u.Name)
+		err := mail.SendHTMLMail(u.Email, "Lama tidak berjumpa di Tulis CMS!", emailBody)
 		if err == nil {
 			u.LastLoginReminderSentAt = &now
 			db.Save(&u)
@@ -67,7 +62,7 @@ func check7DaysLoginInactivity(db *gorm.DB) {
 }
 
 func check30DaysWritingInactivity(db *gorm.DB) {
-	var users []user.User
+	var users []User
 	thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour)
 
 	// We only check users who have roles that can write (superadmin, admin, editor, author)
@@ -110,8 +105,8 @@ func check30DaysWritingInactivity(db *gorm.DB) {
 
 		if lastWriteTime.Before(thirtyDaysAgo) {
 			if u.LastWriteReminderSentAt == nil || u.LastWriteReminderSentAt.Before(lastWriteTime) {
-				emailBody := Get30DaysNoWriteEmail(u.Name)
-				err := SendHTMLMail(u.Email, "Yuk, bagikan ide atau postingan baru Anda di Tulis CMS!", emailBody)
+				emailBody := mail.Get30DaysNoWriteEmail(u.Name)
+				err := mail.SendHTMLMail(u.Email, "Yuk, bagikan ide atau postingan baru Anda di Tulis CMS!", emailBody)
 				if err == nil {
 					u.LastWriteReminderSentAt = &now
 					db.Save(&u)

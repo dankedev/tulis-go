@@ -20,7 +20,6 @@ import (
 	"github.com/dankedev/tulis-go/routes"
 	"github.com/dankedev/tulis-go/storage"
 	"github.com/dankedev/tulis-go/utils/jwt"
-	"github.com/dankedev/tulis-go/utils/mail"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -191,7 +190,7 @@ func main() {
 	fmt.Println("Database migration completed successfully")
 
 	// Start background inactivity email notifications scheduler
-	mail.StartNotificationScheduler(config.DB)
+	user.StartNotificationScheduler(config.DB)
 
 	// 4. Initialize Fiber App
 	app := SetupApp()

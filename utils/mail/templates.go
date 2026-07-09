@@ -8,12 +8,12 @@ import (
 // getLayout wraps html content in our premium Tulis CMS branding layout.
 func getLayout(title, content string) string {
 	brandName := "Tulis CMS"
-	return fmt.Sprintf(`<!DOCTYPE html>
+	layout := `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%s</title>
+    <title>{{.Title}}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -137,18 +137,23 @@ func getLayout(title, content string) string {
 <body>
     <div class="container">
         <div class="header">
-            <h1>%s</h1>
+            <h1>{{.BrandName}}</h1>
         </div>
         <div class="content">
-            %s
+            {{.Content}}
         </div>
         <div class="footer">
-            <p>Sent with ❤️ by %s Team</p>
+            <p>Sent with ❤️ by {{.BrandName}} Team</p>
             <p>If you have any questions, contact us at <a href="mailto:support@tulis.org">support@tulis.org</a></p>
         </div>
     </div>
 </body>
-</html>`, title, brandName, content, brandName)
+</html>`
+
+	layout = strings.ReplaceAll(layout, "{{.Title}}", title)
+	layout = strings.ReplaceAll(layout, "{{.BrandName}}", brandName)
+	layout = strings.ReplaceAll(layout, "{{.Content}}", content)
+	return layout
 }
 
 // GetVerificationEmail returns the template for registration verification.

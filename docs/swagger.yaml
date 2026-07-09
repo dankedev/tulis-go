@@ -96,6 +96,9 @@ definitions:
     type: object
   domain_post.UpdatePostReq:
     properties:
+      author_id:
+        description: optional author ID update
+        type: string
       content:
         type: string
       custom_fields:
@@ -187,6 +190,72 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/forgot-password:
+    post:
+      description: Sends password reset link to user's email
+      parameters:
+      - description: User email
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Request password reset
+      tags:
+      - Auth
+  /api/invitations/{token}:
+    get:
+      description: Returns public details of an invitation by token
+      parameters:
+      - description: Invitation Token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: View invitation details
+      tags:
+      - Workspace Invitations
+  /api/invitations/{token}/accept:
+    post:
+      description: Joins the workspace using the invitation token
+      parameters:
+      - description: Invitation Token
+        in: path
+        name: token
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Accept workspace invitation
+      tags:
+      - Workspace Invitations
   /api/login:
     post:
       consumes:
@@ -1354,6 +1423,32 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /api/reset-password:
+    post:
+      description: Resets user password using reset token
+      parameters:
+      - description: Token and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset password
+      tags:
+      - Auth
   /api/taxonomies:
     get:
       consumes:
@@ -1803,6 +1898,29 @@ paths:
       summary: List taxonomies
       tags:
       - Public Taxonomies
+  /api/verify-email:
+    get:
+      description: Verifies a user's email using verification token
+      parameters:
+      - description: Verification Token
+        in: query
+        name: token
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify email address
+      tags:
+      - Auth
   /api/workspaces:
     get:
       consumes:
@@ -1992,6 +2110,38 @@ paths:
       summary: Update workspace
       tags:
       - Workspaces
+  /api/workspaces/{id}/invitations:
+    post:
+      consumes:
+      - application/json
+      description: Sends email invitation to join workspace
+      parameters:
+      - description: Workspace UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Email and role
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Invite collaborator to workspace
+      tags:
+      - Workspace Invitations
   /api/workspaces/{id}/members:
     get:
       consumes:
