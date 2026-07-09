@@ -118,17 +118,18 @@ func SetupApp() *fiber.App {
 		app.Static("/uploads", "./uploads")
 
 		// ----------------------------------------------------
-		// 1. PUBLIC API v1 ROUTING (Rate Limited & Tenant Scoped)
+		// 1. PUBLIC API v1 ROUTING (Subdomain Guarded, Rate Limited & Tenant Scoped)
 		// ----------------------------------------------------
-		publicApi := app.Group("/api/v1/public")
-		publicApi.Use(limiter.New(limiter.Config{
+		v1PublicApi := app.Group("/v1")
+		v1PublicApi.Use(middleware.APISubdomainGuard(config.AppConfig.APIHost, config.AppConfig.AppEnv))
+		v1PublicApi.Use(limiter.New(limiter.Config{
 			Max:        60,
 			Expiration: 1 * time.Minute,
 			KeyGenerator: func(c *fiber.Ctx) string {
 				return c.IP()
 			},
 		}))
-		publicApi.Use(middleware.TenantScoping(wsSvc))
+		v1PublicApi.Use(middleware.TenantScoping(wsSvc))
 
 		// ----------------------------------------------------
 		// 2. ADMIN & AUTHENTICATED MANAGEMENT ROUTING
@@ -149,9 +150,9 @@ func SetupApp() *fiber.App {
 
 		// Register tenant-scoped routes using domain specific files in routes/
 		routes.RegisterWorkspaceMemberRoutes(tenantGroup, wsHandler)
-		routes.RegisterPostRoutes(publicApi, tenantGroup, postHandler, publicPostHandler)
-		routes.RegisterTaxonomyRoutes(publicApi, tenantGroup, postHandler, publicPostHandler)
-		routes.RegisterMediaRoutes(publicApi, tenantGroup, mediaHandler, publicMediaHandler)
+		routes.RegisterPostRoutes(v1PublicApi, tenantGroup, postHandler, publicPostHandler)
+		routes.RegisterTaxonomyRoutes(v1PublicApi, tenantGroup, postHandler, publicPostHandler)
+		routes.RegisterMediaRoutes(v1PublicApi, tenantGroup, mediaHandler, publicMediaHandler)
 		routes.RegisterPluginRoutes(tenantGroup, pluginHandler)
 		routes.RegisterImporterRoutes(tenantGroup, importerHandler)
 	}

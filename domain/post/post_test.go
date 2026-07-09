@@ -66,8 +66,8 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Delete("/api/taxonomies/:id", handler.DeleteTaxonomy)
 
 	pubHandler := post.NewPublicHandler(svc)
-	app.Get("/api/v1/public/posts", pubHandler.ListPosts)
-	app.Get("/api/v1/public/posts/:slugOrId", pubHandler.GetPost)
+	app.Get("/v1/posts", pubHandler.ListPosts)
+	app.Get("/v1/posts/:slugOrId", pubHandler.GetPost)
 
 	var firstPostID string
 	var firstPostSlug string
@@ -518,8 +518,8 @@ func TestPostServiceAndHandler(t *testing.T) {
 		draftPostData := draftPostRes["data"].(map[string]interface{})
 		draftSlug := draftPostData["slug"].(string)
 
-		// 3. Consume via Public Endpoint (GET /api/v1/public/posts)
-		req = httptest.NewRequest("GET", "/api/v1/public/posts", nil)
+		// 3. Consume via Public Endpoint (GET /v1/posts)
+		req = httptest.NewRequest("GET", "/v1/posts", nil)
 		resp, _ = app.Test(req, -1)
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected 200 consuming public posts, got %d", resp.StatusCode)
@@ -540,15 +540,15 @@ func TestPostServiceAndHandler(t *testing.T) {
 			}
 		}
 
-		// 4. Retrieve published post directly via slug (GET /api/v1/public/posts/:slugOrId)
-		req = httptest.NewRequest("GET", "/api/v1/public/posts/"+pubSlug, nil)
+		// 4. Retrieve published post directly via slug (GET /v1/posts/:slugOrId)
+		req = httptest.NewRequest("GET", "/v1/posts/"+pubSlug, nil)
 		resp, _ = app.Test(req, -1)
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected 200 fetching public post by slug, got %d", resp.StatusCode)
 		}
 
-		// 5. Retrieve draft post directly via slug (GET /api/v1/public/posts/:slugOrId) -> Should return 404 Not Found
-		req = httptest.NewRequest("GET", "/api/v1/public/posts/"+draftSlug, nil)
+		// 5. Retrieve draft post directly via slug (GET /v1/posts/:slugOrId) -> Should return 404 Not Found
+		req = httptest.NewRequest("GET", "/v1/posts/"+draftSlug, nil)
 		resp, _ = app.Test(req, -1)
 		if resp.StatusCode != http.StatusNotFound {
 			t.Errorf("Expected 404 fetching draft post via public endpoint, got %d", resp.StatusCode)
