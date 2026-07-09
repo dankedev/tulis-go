@@ -204,6 +204,11 @@ func (s *workspaceService) InviteMember(ctx context.Context, workspaceID, invite
 		return nil, ErrWorkspaceNotFound
 	}
 
+	// Check if there is already an active pending invitation for this email
+	if existing, _ := s.repo.GetPendingInvitationByEmail(ctx, workspaceID, email); existing != nil {
+		return nil, errors.New("undangan aktif untuk email ini sudah ada (masih pending)")
+	}
+
 	inviterName := "Seorang anggota tim"
 	if member, err := s.repo.GetMember(ctx, workspaceID, inviterUserID); err == nil && member.User != nil && member.User.Name != "" {
 		inviterName = member.User.Name

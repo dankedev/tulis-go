@@ -45,6 +45,10 @@ func (m *mockWorkspaceRepo) UpdateInvitation(ctx context.Context, invite *worksp
 	return m.db.WithContext(ctx).Save(invite).Error
 }
 
+func (m *mockWorkspaceRepo) GetPendingInvitationByEmail(ctx context.Context, workspaceID uuid.UUID, email string) (*workspace.WorkspaceInvitation, error) {
+	return nil, nil
+}
+
 func setupTestDB(t *testing.T) (*gorm.DB, UserService, *AuthHandler, jwt.JWTService) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

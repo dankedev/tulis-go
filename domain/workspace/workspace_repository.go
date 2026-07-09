@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -27,6 +28,7 @@ type WorkspaceRepository interface {
 	GetInvitationByToken(ctx context.Context, token string) (*WorkspaceInvitation, error)
 	UpdateInvitation(ctx context.Context, invite *WorkspaceInvitation) error
 	ListInvitations(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceInvitation, error)
+	GetPendingInvitationByEmail(ctx context.Context, workspaceID uuid.UUID, email string) (*WorkspaceInvitation, error)
 }
 
 type workspaceRepository struct {
@@ -193,5 +195,16 @@ func (r *workspaceRepository) ListInvitations(ctx context.Context, workspaceID u
 	var invites []WorkspaceInvitation
 	err := r.db.WithContext(ctx).Where("workspace_id = ? AND deleted_at IS NULL", workspaceID).Find(&invites).Error
 	return invites, err
+}
+
+func (r *workspaceRepository) GetPendingInvitationByEmail(ctx context.Context, workspaceID uuid.UUID, email string) (*WorkspaceInvitation, error) {
+	var invite WorkspaceInvitation
+	err := r.db.WithContext(ctx).
+		Where("workspace_id = ? AND email = ? AND status = ? AND expires_at > ? AND deleted_at IS NULL", workspaceID, email, "pending", time.Now()).
+		First(&invite).Error
+	if err != nil {
+		return nil, err
+	}
+	return &invite, nil
 }
 
