@@ -125,6 +125,67 @@ The API will be available at `http://localhost:8080`.
 | `R2_BUCKET_NAME` | R2 bucket name | `tulis-media` |
 | `R2_PUBLIC_URL` | R2 public URL | - |
 
+### OAuth Configuration
+
+To enable login with Google, GitHub, or GitLab, you need to obtain OAuth credentials from each provider.
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 Client Secret |
+| `GOOGLE_REDIRECT_URL` | Google OAuth callback URL |
+| `GITHUB_CLIENT_ID` | GitHub OAuth App Client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret |
+| `GITHUB_REDIRECT_URL` | GitHub OAuth callback URL |
+| `GITLAB_CLIENT_ID` | GitLab OAuth Application Client ID |
+| `GITLAB_CLIENT_SECRET` | GitLab OAuth Application Client Secret |
+| `GITLAB_REDIRECT_URL` | GitLab OAuth callback URL |
+
+#### Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Navigate to **APIs & Services** > **Credentials**
+4. Click **Create Credentials** > **OAuth client ID**
+5. Select **Web application** as application type
+6. Add authorized redirect URI: `http://localhost:8080/api/auth/google/callback` (for development)
+7. Copy **Client ID** and **Client Secret**
+8. In Google Cloud Console, enable **Google+ API** if not already enabled:
+   - Go to **APIs & Services** > **Library**
+   - Search for "Google+ API" and enable it
+
+#### GitHub OAuth App Setup
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click **OAuth Apps** > **New OAuth App**
+3. Fill in application details:
+   - **Application name**: Tulis CMS (or your choice)
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:8080/api/auth/github/callback`
+4. Click **Register application**
+5. Copy **Client ID** and generate a new **Client Secret**
+
+#### GitLab OAuth Application Setup
+
+1. Go to [GitLab](https://gitlab.com/) > **Preferences** > **Applications**
+2. Click **Add new application**
+3. Fill in application details:
+   - **Name**: Tulis CMS (or your choice)
+   - **Redirect URI**: `http://localhost:8080/api/auth/gitlab/callback`
+   - **Scopes**: Select `read_user` scope
+4. Click **Save application**
+5. Copy **Application ID** (as Client ID) and **Secret**
+
+#### Production Redirect URLs
+
+For production, update the redirect URLs to match your domain:
+
+| Provider | Production Redirect URL |
+|----------|----------------------|
+| Google | `https://api.yourdomain.com/api/auth/google/callback` |
+| GitHub | `https://api.yourdomain.com/api/auth/github/callback` |
+| GitLab | `https://api.yourdomain.com/api/auth/gitlab/callback` |
+
 ## API Structure
 
 ### Public Endpoints (Rate Limited)
@@ -141,6 +202,14 @@ GET  /api/v1/public/media/:id       # Get media by ID
 POST /api/user/register              # User registration
 POST /api/user/login                 # User login
 GET  /api/user/me                    # Get current user
+
+# OAuth Authentication
+GET  /api/auth/google                # Redirect to Google OAuth
+GET  /api/auth/google/callback        # Google OAuth callback
+GET  /api/auth/github                # Redirect to GitHub OAuth
+GET  /api/auth/github/callback       # GitHub OAuth callback
+GET  /api/auth/gitlab                # Redirect to GitLab OAuth
+GET  /api/auth/gitlab/callback       # GitLab OAuth callback
 ```
 
 ### Protected Endpoints (Require JWT)
@@ -225,6 +294,13 @@ X-Workspace-ID: <workspace_id>
 
 - Extensible workspace plugins
 - Enable/disable plugins per workspace
+
+### OAuth Authentication
+
+- Login/Register with Google, GitHub, or GitLab
+- Automatic account linking by email
+- Workspace auto-creation for new users (when not restricted)
+- Email automatically verified for OAuth users
 
 ## Testing
 
