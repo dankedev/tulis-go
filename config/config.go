@@ -25,6 +25,7 @@ type Config struct {
 	R2SecretKey         string
 	R2BucketName        string
 	R2PublicURL         string
+	APIHost             string
 }
 
 var AppConfig *Config
@@ -50,6 +51,7 @@ func LoadConfig() {
 		R2SecretKey:         getEnv("R2_SECRET_ACCESS_KEY", ""),
 		R2BucketName:        getEnv("R2_BUCKET_NAME", ""),
 		R2PublicURL:         getEnv("R2_PUBLIC_URL", ""),
+		APIHost:             getEnv("API_HOST", "api.tulis.org"),
 	}
 }
 
