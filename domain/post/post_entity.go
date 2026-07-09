@@ -25,4 +25,19 @@ type Post struct {
 	Taxonomies   []Taxonomy             `gorm:"many2many:post_taxonomies;" json:"taxonomies"`
 	FeatureImage string                 `gorm:"type:varchar(255)" json:"feature_image"`
 	EditedAt     *time.Time             `json:"edited_at,omitempty"`
+	SeoTitle     string                 `gorm:"type:varchar(255)" json:"seo_title,omitempty"`
+	SeoDesc      string                 `gorm:"type:text" json:"seo_desc,omitempty"`
+	FocusKeyword string                 `gorm:"type:varchar(100)" json:"focus_keyword,omitempty"`
+	OgpTitle     string                 `gorm:"type:varchar(255)" json:"ogp_title,omitempty"`
+	OgpDesc      string                 `gorm:"type:text" json:"ogp_desc,omitempty"`
+	OgpImage     string                 `gorm:"type:text" json:"ogp_image,omitempty"`
+	SeoScore     int                    `gorm:"type:integer;default:0" json:"seo_score"`
 }
+
+func (p *Post) GetTitle() string { return p.Title }
+func (p *Post) GetContent() string { return p.Content }
+func (p *Post) GetSlug() string { return p.Slug }
+func (p *Post) GetFocusKeyword() string { return p.FocusKeyword }
+func (p *Post) GetSeoDesc() string { return p.SeoDesc }
+func (p *Post) GetOgpImage() string { return p.OgpImage }
+func (p *Post) SetSeoScore(score int) { p.SeoScore = score }

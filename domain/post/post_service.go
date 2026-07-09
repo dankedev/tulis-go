@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/utils/helpers"
 	"github.com/google/uuid"
 )
@@ -53,11 +54,12 @@ type PostService interface {
 }
 
 type postService struct {
-	repo PostRepository
+	repo      PostRepository
+	pluginSvc plugin.Service
 }
 
-func NewPostService(repo PostRepository) PostService {
-	return &postService{repo: repo}
+func NewPostService(repo PostRepository, pluginSvc plugin.Service) PostService {
+	return &postService{repo: repo, pluginSvc: pluginSvc}
 }
 
 func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorID, workspaceID uuid.UUID) (*Post, error) {
@@ -143,6 +145,16 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		CustomFields: req.CustomFields,
 		FeatureImage: req.FeatureImage,
 		EditedAt:     &now,
+		SeoTitle:     req.SeoTitle,
+		SeoDesc:      req.SeoDesc,
+		FocusKeyword: req.FocusKeyword,
+		OgpTitle:     req.OgpTitle,
+		OgpDesc:      req.OgpDesc,
+		OgpImage:     req.OgpImage,
+	}
+
+	if s.pluginSvc != nil {
+		_ = s.pluginSvc.TriggerHook(ctx, workspaceID, "before_create_post", post)
 	}
 
 	if err := s.repo.Create(ctx, post); err != nil {
@@ -271,6 +283,29 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 		if uid, err := uuid.Parse(*req.AuthorID); err == nil {
 			post.AuthorID = uid
 		}
+	}
+
+	if req.SeoTitle != nil {
+		post.SeoTitle = *req.SeoTitle
+	}
+	if req.SeoDesc != nil {
+		post.SeoDesc = *req.SeoDesc
+	}
+	if req.FocusKeyword != nil {
+		post.FocusKeyword = *req.FocusKeyword
+	}
+	if req.OgpTitle != nil {
+		post.OgpTitle = *req.OgpTitle
+	}
+	if req.OgpDesc != nil {
+		post.OgpDesc = *req.OgpDesc
+	}
+	if req.OgpImage != nil {
+		post.OgpImage = *req.OgpImage
+	}
+
+	if s.pluginSvc != nil {
+		_ = s.pluginSvc.TriggerHook(ctx, post.WorkspaceID, "before_update_post", post)
 	}
 
 	now := time.Now()

@@ -134,10 +134,78 @@ func (s *service) TriggerHook(ctx context.Context, workspaceID uuid.UUID, hookNa
 			}
 		case "seo-analyzer":
 			if hookName == "before_create_post" || hookName == "before_update_post" {
-				log.Printf("[SEO Plugin] Ingesting content analysis hook for post: %+v", payload)
+				if seoPost, ok := payload.(SeoPost); ok {
+					minWordCount := 300
+					if p.Settings != nil {
+						if mwcVal, exists := p.Settings["min_word_count"]; exists {
+							switch v := mwcVal.(type) {
+							case float64:
+								minWordCount = int(v)
+							case int:
+								minWordCount = v
+							}
+						}
+					}
+					score := CalculateSeoScore(seoPost, minWordCount)
+					seoPost.SetSeoScore(score)
+					log.Printf("[SEO Plugin] Calculated SEO score for post: %d", score)
+				}
 			}
 		}
 	}
 
 	return nil
+}
+
+type SeoPost interface {
+	GetTitle() string
+	GetContent() string
+	GetSlug() string
+	GetFocusKeyword() string
+	GetSeoDesc() string
+	GetOgpImage() string
+	SetSeoScore(score int)
+}
+
+func CalculateSeoScore(post SeoPost, minWordCount int) int {
+	score := 0
+	content := post.GetContent()
+	title := post.GetTitle()
+	slug := post.GetSlug()
+	focusKeyword := post.GetFocusKeyword()
+	seoDesc := post.GetSeoDesc()
+	ogpImage := post.GetOgpImage()
+
+	wordCount := len(strings.Fields(content))
+
+	// 1. Word count rule (up to 30 points)
+	if wordCount >= minWordCount {
+		score += 30
+	} else if wordCount > 0 && minWordCount > 0 {
+		score += (wordCount * 30) / minWordCount
+	}
+
+	// 2. Focus keyword rules (up to 50 points)
+	if focusKeyword != "" {
+		lowerKeyword := strings.ToLower(focusKeyword)
+		if strings.Contains(strings.ToLower(title), lowerKeyword) {
+			score += 20
+		}
+		if strings.Contains(strings.ToLower(slug), lowerKeyword) {
+			score += 15
+		}
+		if strings.Contains(strings.ToLower(content), lowerKeyword) {
+			score += 15
+		}
+	}
+
+	// 3. Meta completeness rules (up to 20 points)
+	if seoDesc != "" {
+		score += 10
+	}
+	if ogpImage != "" {
+		score += 10
+	}
+
+	return score
 }

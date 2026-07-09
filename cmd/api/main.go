@@ -74,8 +74,12 @@ func SetupApp() *fiber.App {
 		oauthSvc := user.NewOAuthService(userRepo, wsRepo, jwtSvc)
 		oauthHandler := user.NewOAuthHandler(oauthSvc)
 
+		pluginRepo := plugin.NewRepository(config.DB)
+		pluginSvc := plugin.NewService(pluginRepo)
+		pluginHandler := plugin.NewHandler(pluginSvc)
+
 		postRepo := post.NewPostRepository(config.DB)
-		postSvc := post.NewPostService(postRepo)
+		postSvc := post.NewPostService(postRepo, pluginSvc)
 		postHandler := post.NewPostHandler(postSvc)
 
 		mediaRepo := media.NewMediaRepository(config.DB)
@@ -105,12 +109,8 @@ func SetupApp() *fiber.App {
 		mediaSvc := media.NewMediaService(mediaRepo, mediaStorage)
 		mediaHandler := media.NewMediaHandler(mediaSvc)
 
-		pluginRepo := plugin.NewRepository(config.DB)
-		pluginSvc := plugin.NewService(pluginRepo)
-		pluginHandler := plugin.NewHandler(pluginSvc)
-
 		importerSvc := importer.NewImporterService(config.DB, mediaSvc, postRepo, mediaRepo)
-		importerHandler := importer.NewImporterHandler(importerSvc)
+		importerHandler := importer.NewImporterHandler(importerSvc, pluginSvc)
 
 		// Initialize Public Consumption Handlers
 		publicPostHandler := post.NewPublicHandler(postSvc)

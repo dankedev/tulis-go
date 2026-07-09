@@ -89,18 +89,19 @@ func (m *mockOAuthWorkspaceRepo) UpdateInvitation(ctx context.Context, invite *w
 
 func init() {
 	config.AppConfig = &config.Config{
-		JWTSecret:          "test-secret",
-		JWTExpiryHours:     24,
+		JWTSecret:           "test-secret",
+		JWTExpiryHours:      24,
 		WorkspaceRestricted: false,
-		GoogleClientID:     "test-google-client-id",
-		GoogleClientSecret: "test-google-client-secret",
-		GoogleRedirectURL:  "http://localhost:8080/api/auth/google/callback",
-		GitHubClientID:     "test-github-client-id",
-		GitHubClientSecret: "test-github-client-secret",
-		GitHubRedirectURL:  "http://localhost:8080/api/auth/github/callback",
-		GitLabClientID:     "test-gitlab-client-id",
-		GitLabClientSecret: "test-gitlab-client-secret",
-		GitLabRedirectURL:  "http://localhost:8080/api/auth/gitlab/callback",
+		AllowRegistration:   true,
+		GoogleClientID:      "test-google-client-id",
+		GoogleClientSecret:  "test-google-client-secret",
+		GoogleRedirectURL:   "http://localhost:8080/api/auth/google/callback",
+		GitHubClientID:      "test-github-client-id",
+		GitHubClientSecret:  "test-github-client-secret",
+		GitHubRedirectURL:   "http://localhost:8080/api/auth/github/callback",
+		GitLabClientID:      "test-gitlab-client-id",
+		GitLabClientSecret:  "test-gitlab-client-secret",
+		GitLabRedirectURL:   "http://localhost:8080/api/auth/gitlab/callback",
 	}
 }
 

@@ -27,7 +27,7 @@ func setupTestPostDB(t *testing.T) (*gorm.DB, post.PostService, *post.PostHandle
 	}
 
 	repo := post.NewPostRepository(db)
-	svc := post.NewPostService(repo)
+	svc := post.NewPostService(repo, nil)
 	handler := post.NewPostHandler(svc)
 
 	return db, svc, handler

@@ -13,6 +13,12 @@ type CreatePostReq struct {
 	CustomFields map[string]interface{} `json:"custom_fields"`
 	TaxonomyIDs  []string               `json:"taxonomy_ids"` // IDs of categories/tags to assign
 	FeatureImage string                 `json:"feature_image"`
+	SeoTitle     string                 `json:"seo_title"`
+	SeoDesc      string                 `json:"seo_desc"`
+	FocusKeyword string                 `json:"focus_keyword"`
+	OgpTitle     string                 `json:"ogp_title"`
+	OgpDesc      string                 `json:"ogp_desc"`
+	OgpImage     string                 `json:"ogp_image"`
 }
 
 type UpdatePostReq struct {
@@ -27,6 +33,12 @@ type UpdatePostReq struct {
 	TaxonomyIDs  *[]string              `json:"taxonomy_ids"` // optional taxonomy assignment updates
 	FeatureImage *string                `json:"feature_image"`
 	AuthorID     *string                `json:"author_id"`     // optional author ID update
+	SeoTitle     *string                `json:"seo_title"`
+	SeoDesc      *string                `json:"seo_desc"`
+	FocusKeyword *string                `json:"focus_keyword"`
+	OgpTitle     *string                `json:"ogp_title"`
+	OgpDesc      *string                `json:"ogp_desc"`
+	OgpImage     *string                `json:"ogp_image"`
 }
 
 type CreatePostTypeReq struct {

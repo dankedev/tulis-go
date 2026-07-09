@@ -20,17 +20,19 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
 type ImporterHandler struct {
-	svc ImporterService
+	svc       ImporterService
+	pluginSvc plugin.Service
 }
 
-func NewImporterHandler(svc ImporterService) *ImporterHandler {
-	return &ImporterHandler{svc: svc}
+func NewImporterHandler(svc ImporterService, pluginSvc plugin.Service) *ImporterHandler {
+	return &ImporterHandler{svc: svc, pluginSvc: pluginSvc}
 }
 
 // Upload godoc
@@ -55,6 +57,22 @@ func (h *ImporterHandler) Upload(c *fiber.Ctx) error {
 	workspaceID, err := uuid.Parse(wsIDStr.(string))
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// Check if wordpress-import plugin is enabled
+	plugins, err := h.pluginSvc.ListPlugins(c.Context(), workspaceID)
+	if err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to verify plugin status", nil)
+	}
+	var importEnabled bool
+	for _, p := range plugins {
+		if p.ID == "wordpress-import" {
+			importEnabled = p.Enabled
+			break
+		}
+	}
+	if !importEnabled {
+		return response.Error(c, "FORBIDDEN", "Plugin WordPress XML Import must be enabled to perform this action", nil)
 	}
 
 	userIDStr := c.Locals("user_id")
@@ -207,6 +225,22 @@ func (h *ImporterHandler) UploadCSV(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
 	}
 
+	// Check if wordpress-import plugin is enabled
+	plugins, err := h.pluginSvc.ListPlugins(c.Context(), workspaceID)
+	if err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to verify plugin status", nil)
+	}
+	var importEnabled bool
+	for _, p := range plugins {
+		if p.ID == "wordpress-import" {
+			importEnabled = p.Enabled
+			break
+		}
+	}
+	if !importEnabled {
+		return response.Error(c, "FORBIDDEN", "Plugin WordPress XML Import must be enabled to perform this action", nil)
+	}
+
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", "File parameter is required", nil)
@@ -267,6 +301,22 @@ func (h *ImporterHandler) StartCSVImport(c *fiber.Ctx) error {
 	workspaceID, err := uuid.Parse(wsIDStr.(string))
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// Check if wordpress-import plugin is enabled
+	plugins, err := h.pluginSvc.ListPlugins(c.Context(), workspaceID)
+	if err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to verify plugin status", nil)
+	}
+	var importEnabled bool
+	for _, p := range plugins {
+		if p.ID == "wordpress-import" {
+			importEnabled = p.Enabled
+			break
+		}
+	}
+	if !importEnabled {
+		return response.Error(c, "FORBIDDEN", "Plugin WordPress XML Import must be enabled to perform this action", nil)
 	}
 
 	userIDStr := c.Locals("user_id")
