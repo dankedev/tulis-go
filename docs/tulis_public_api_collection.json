@@ -1,0 +1,448 @@
+{
+  "info": {
+    "_postman_id": "4b5d6e2a-1c88-466d-927a-8f19ea3a4cd6",
+    "name": "Tulis CMS Public API",
+    "description": "Postman collection for Tulis CMS public content consumption APIs (v1) and unauthenticated authentication/utility endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public Content API (v1)",
+      "description": "Public content delivery APIs. Rate-limited and scoped by subdomain or X-Workspace-ID header.",
+      "item": [
+        {
+          "name": "List Published Posts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "description": "Workspace ID (UUID)",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/posts?type=&taxonomy=&sort=published_at desc&page=1&per_page=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "Filter by post type (e.g. post, page, custom-post-type)"
+                },
+                {
+                  "key": "taxonomy",
+                  "value": "",
+                  "description": "Filter by taxonomy slug"
+                },
+                {
+                  "key": "sort",
+                  "value": "published_at desc",
+                  "description": "Sort order"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10",
+                  "description": "Items per page"
+                }
+              ]
+            },
+            "description": "Returns a paginated list of published posts for the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Published Post by Slug or ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/posts/:slugOrId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "posts",
+                ":slugOrId"
+              ],
+              "variable": [
+                {
+                  "key": "slugOrId",
+                  "value": "my-first-post",
+                  "description": "Post slug or UUID"
+                }
+              ]
+            },
+            "description": "Returns a single published post by slug or ID."
+          },
+          "response": []
+        },
+        {
+          "name": "List Taxonomies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/taxonomies?type=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "taxonomies"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "Filter by taxonomy type (e.g. category, tag)"
+                }
+              ]
+            },
+            "description": "Returns all public taxonomies for the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "List Public Media",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/media",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "media"
+              ]
+            },
+            "description": "Returns all public media for the workspace."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication & Account",
+      "description": "Unauthenticated auth and user management endpoints.",
+      "item": [
+        {
+          "name": "User Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"name\": \"John Doe\",\n  \"password\": \"strongpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "register"
+              ]
+            },
+            "description": "Register a new user account."
+          },
+          "response": []
+        },
+        {
+          "name": "User Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"strongpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "description": "Authenticates a user and returns a JWT token."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/verify-email?token=VERIFICATION_TOKEN_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "verify-email"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "VERIFICATION_TOKEN_HERE",
+                  "description": "Email verification token"
+                }
+              ]
+            },
+            "description": "Verifies a user's email address using the verification token sent via email."
+          },
+          "response": []
+        },
+        {
+          "name": "Request Password Reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "forgot-password"
+              ]
+            },
+            "description": "Sends password reset link to user's email."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"RESET_TOKEN_HERE\",\n  \"password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reset-password"
+              ]
+            },
+            "description": "Resets user password using reset token."
+          },
+          "response": []
+        },
+        {
+          "name": "Register by Invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invited@example.com\",\n  \"name\": \"Invited User\",\n  \"password\": \"strongpassword123\",\n  \"token\": \"INVITATION_TOKEN_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/register/invitation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "register",
+                "invitation"
+              ]
+            },
+            "description": "Register a new user who has been invited to a workspace."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workspace & Invitations",
+      "description": "Unauthenticated workspace-related endpoints.",
+      "item": [
+        {
+          "name": "View Invitation Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invitations/:token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invitations",
+                ":token"
+              ],
+              "variable": [
+                {
+                  "key": "token",
+                  "value": "INVITATION_TOKEN_HERE",
+                  "description": "Invitation Token"
+                }
+              ]
+            },
+            "description": "Returns public details of an invitation by token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "OAuth",
+      "description": "OAuth redirection and callback endpoints.",
+      "item": [
+        {
+          "name": "OAuth Redirect",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/:provider",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                ":provider"
+              ],
+              "variable": [
+                {
+                  "key": "provider",
+                  "value": "google",
+                  "description": "OAuth provider (e.g. google, github)"
+                }
+              ]
+            },
+            "description": "Redirects to the specified OAuth provider's authorization page."
+          },
+          "response": []
+        },
+        {
+          "name": "OAuth Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/:provider/callback?code=OAUTH_CODE_HERE&state=OAUTH_STATE_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                ":provider",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "OAUTH_CODE_HERE"
+                },
+                {
+                  "key": "state",
+                  "value": "OAUTH_STATE_HERE"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "provider",
+                  "value": "google",
+                  "description": "OAuth provider"
+                }
+              ]
+            },
+            "description": "Handles the OAuth provider callback and logs/registers the user."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "workspaceId",
+      "value": "YOUR_WORKSPACE_UUID_HERE",
+      "type": "string"
+    }
+  ]
+}

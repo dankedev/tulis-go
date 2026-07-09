@@ -1,0 +1,1582 @@
+{
+  "info": {
+    "_postman_id": "9c8e1f5d-7a6b-4e9d-aa9f-d3c4578ef991",
+    "name": "Tulis CMS Admin & Management API",
+    "description": "Postman collection for Tulis CMS admin and authenticated management endpoints. Used for building custom dashboards and admin interfaces.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "User Profile",
+      "description": "Endpoints to manage the current user's profile and credentials.",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me"
+              ]
+            },
+            "description": "Returns the profile of the currently authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Updated\",\n  \"avatar_url\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me"
+              ]
+            },
+            "description": "Updates the profile details (name, avatar) of the logged-in user."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"strongpassword123\",\n  \"new_password\": \"supersecurepassword456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "password"
+              ]
+            },
+            "description": "Changes the password for the current authenticated user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workspace Management",
+      "description": "Endpoints for workspace CRUD operations.",
+      "item": [
+        {
+          "name": "Create Workspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My New Workspace\",\n  \"slug\": \"my-new-workspace\",\n  \"plan\": \"free\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces"
+              ]
+            },
+            "description": "Creates a new multi-tenant workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "List Workspaces",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces"
+              ]
+            },
+            "description": "Lists all workspaces the current user belongs to."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workspace by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "WORKSPACE_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Returns detailed information of a workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Workspace",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Workspace Name\",\n  \"slug\": \"updated-workspace-slug\",\n  \"settings\": {\n    \"allow_public_comments\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "WORKSPACE_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Updates workspace attributes and settings."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Workspace",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "WORKSPACE_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Deletes a workspace permanently."
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Workspace Invitation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invitations/:token/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invitations",
+                ":token",
+                "accept"
+              ],
+              "variable": [
+                {
+                  "key": "token",
+                  "value": "INVITATION_TOKEN_HERE"
+                }
+              ]
+            },
+            "description": "Accepts an invitation token to join a workspace as an authenticated user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workspace Members & Team",
+      "description": "Endpoints to manage members and invitations within a specific workspace.",
+      "item": [
+        {
+          "name": "Add Member Directly",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"USER_UUID_HERE\",\n  \"role\": \"editor\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id",
+                "members"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{workspaceId}}"
+                }
+              ]
+            },
+            "description": "Adds a user directly to the workspace members list."
+          },
+          "response": []
+        },
+        {
+          "name": "List Workspace Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id",
+                "members"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{workspaceId}}"
+                }
+              ]
+            },
+            "description": "Retrieves the list of workspace members."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id/members/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id",
+                "members",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{workspaceId}}"
+                },
+                {
+                  "key": "userId",
+                  "value": "MEMBER_USER_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Modifies a workspace member's role (admin, editor, author, subscriber)."
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id/members/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id",
+                "members",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{workspaceId}}"
+                },
+                {
+                  "key": "userId",
+                  "value": "MEMBER_USER_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Removes a user from the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Invite New Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invitee@example.com\",\n  \"role\": \"editor\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id",
+                "invitations"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{workspaceId}}"
+                }
+              ]
+            },
+            "description": "Sends an email workspace invitation."
+          },
+          "response": []
+        },
+        {
+          "name": "List Workspace Invitations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id",
+                "invitations"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{workspaceId}}"
+                }
+              ]
+            },
+            "description": "Lists all active invitations sent from the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Invitation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspaces/:id/invitations/:inviteId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":id",
+                "invitations",
+                ":inviteId"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{workspaceId}}"
+                },
+                {
+                  "key": "inviteId",
+                  "value": "INVITATION_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Revokes/cancels a pending workspace invitation."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Content Management",
+      "description": "CRUD operations for workspace posts, pages, and post revisions.",
+      "item": [
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hello World\",\n  \"slug\": \"hello-world\",\n  \"content\": \"<p>Welcome to my new content management system!</p>\",\n  \"excerpt\": \"Introduction post\",\n  \"status\": \"draft\",\n  \"post_type\": \"post\",\n  \"taxonomy_ids\": [],\n  \"feature_image\": \"https://example.com/cover.jpg\",\n  \"custom_fields\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts"
+              ]
+            },
+            "description": "Creates a new content post or page."
+          },
+          "response": []
+        },
+        {
+          "name": "List Posts (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts?page=1&per_page=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lists all posts in the workspace including drafts, scheduled, and archived posts."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Post by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Returns full details of a specific post."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Post",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Post Title\",\n  \"content\": \"<p>Revised post content</p>\",\n  \"status\": \"published\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Updates a post and auto-saves a content revision."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Deletes a post."
+          },
+          "response": []
+        },
+        {
+          "name": "List Post Revisions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/:id/revisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                ":id",
+                "revisions"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Lists all content revisions for a post."
+          },
+          "response": []
+        },
+        {
+          "name": "Restore Revision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/posts/:id/revisions/:revisionId/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "posts",
+                ":id",
+                "revisions",
+                ":revisionId",
+                "restore"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_UUID_HERE"
+                },
+                {
+                  "key": "revisionId",
+                  "value": "REVISION_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Restores a post content to a specific revision state."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Custom Post Types",
+      "description": "Manage Custom Post Types (CPT) configurations.",
+      "item": [
+        {
+          "name": "Register Post Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Portfolio\",\n  \"slug\": \"portfolio\",\n  \"description\": \"Project portfolio items\",\n  \"fields\": [\n    {\n      \"name\": \"client_name\",\n      \"label\": \"Client Name\",\n      \"type\": \"text\",\n      \"required\": true\n    },\n    {\n      \"name\": \"project_url\",\n      \"label\": \"Project URL\",\n      \"type\": \"text\",\n      \"required\": false\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/post-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post-types"
+              ]
+            },
+            "description": "Registers a new Custom Post Type with schemas."
+          },
+          "response": []
+        },
+        {
+          "name": "List Post Types",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post-types"
+              ]
+            },
+            "description": "Lists all Custom Post Types registered in the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Post Type by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post-types/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post-types",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_TYPE_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Returns details of a registered Custom Post Type."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Post Type",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post-types/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post-types",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_TYPE_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Deletes a registered Custom Post Type configuration."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Taxonomies",
+      "description": "CRUD operations for Categories and Tags.",
+      "item": [
+        {
+          "name": "Create Taxonomy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"News\",\n  \"slug\": \"news\",\n  \"type\": \"category\",\n  \"parent_id\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/taxonomies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "taxonomies"
+              ]
+            },
+            "description": "Creates a new category or tag."
+          },
+          "response": []
+        },
+        {
+          "name": "List Taxonomies (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/taxonomies?type=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "taxonomies"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "Filter by type (category or tag)"
+                }
+              ]
+            },
+            "description": "Lists all taxonomies in the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Taxonomy by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/taxonomies/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "taxonomies",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TAXONOMY_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Gets details of a taxonomy."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Taxonomy",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tech News\",\n  \"slug\": \"tech-news\",\n  \"parent_id\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/taxonomies/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "taxonomies",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TAXONOMY_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Updates a taxonomy configuration."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Taxonomy",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/taxonomies/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "taxonomies",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TAXONOMY_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Deletes a taxonomy."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Media Library",
+      "description": "Endpoints to manage and upload files to the media storage.",
+      "item": [
+        {
+          "name": "Upload Media",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Media file to upload"
+                },
+                {
+                  "key": "alt_text",
+                  "value": "Cover Image",
+                  "type": "text"
+                },
+                {
+                  "key": "caption",
+                  "value": "Weekly news banner cover",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/media/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "media",
+                "upload"
+              ]
+            },
+            "description": "Uploads an image or document to active storage (Local/Cloudflare R2)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Media Library",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/media",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "media"
+              ]
+            },
+            "description": "Lists all uploaded media assets."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Media by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "media",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "MEDIA_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Gets details of a single media item."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Media Metadata",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alt_text\": \"Updated Alt Description\",\n  \"caption\": \"Updated caption details\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/media/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "media",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "MEDIA_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Updates alt text and captions on an existing media file."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Media",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "media",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "MEDIA_UUID_HERE"
+                }
+              ]
+            },
+            "description": "Deletes a media item from the database and storage."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Plugins Management",
+      "description": "Enable, disable, and configure workspace plugins.",
+      "item": [
+        {
+          "name": "List Workspace Plugins",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins"
+              ]
+            },
+            "description": "Lists plugins status and settings in the workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Plugin State",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins/:id/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins",
+                ":id",
+                "toggle"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "plugin-id-slug"
+                }
+              ]
+            },
+            "description": "Enables or disables a specific plugin."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Plugin Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"example_config_key\": \"value\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins/:id/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins",
+                ":id",
+                "settings"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "plugin-id-slug"
+                }
+              ]
+            },
+            "description": "Updates custom config settings for a workspace plugin."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Importers",
+      "description": "Endpoints to import content from WordPress WXR or CSV files.",
+      "item": [
+        {
+          "name": "WordPress WXR Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "WordPress WXR XML file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins/importer/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins",
+                "importer",
+                "upload"
+              ]
+            },
+            "description": "Uploads and triggers background parsing for a WordPress XML file."
+          },
+          "response": []
+        },
+        {
+          "name": "List Importer Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins/importer/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins",
+                "importer",
+                "logs"
+              ]
+            },
+            "description": "Retrieves history logs of imports."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Importer Log details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins/importer/logs/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins",
+                "importer",
+                "logs",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "LOG_ID"
+                }
+              ]
+            },
+            "description": "Returns detailed logs showing progress/errors of a specific import run."
+          },
+          "response": []
+        },
+        {
+          "name": "CSV Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "CSV data file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins/importer/csv/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins",
+                "importer",
+                "csv",
+                "upload"
+              ]
+            },
+            "description": "Uploads a raw CSV file and returns column headers for mapping."
+          },
+          "response": []
+        },
+        {
+          "name": "Start CSV Import with Mapping",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Workspace-ID",
+                "value": "{{workspaceId}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_url\": \"uploads/importers/temp_file_name.csv\",\n  \"default_post_type\": \"post\",\n  \"default_status\": \"draft\",\n  \"mapping\": {\n    \"title\": \"Judul Post\",\n    \"content\": \"Isi Konten\",\n    \"slug\": \"Slug URL\",\n    \"excerpt\": \"Kutipan\",\n    \"feature_image\": \"Link Gambar\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/plugins/importer/csv/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "plugins",
+                "importer",
+                "csv",
+                "import"
+              ]
+            },
+            "description": "Triggers the background worker to parse the CSV and import entries using header mappings."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "workspaceId",
+      "value": "YOUR_WORKSPACE_UUID_HERE",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "YOUR_JWT_BEARER_TOKEN_HERE",
+      "type": "string"
+    }
+  ]
+}
