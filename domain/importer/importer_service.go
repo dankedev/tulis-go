@@ -1228,3 +1228,437 @@ func (s *importerService) UploadCSV(ctx context.Context, workspaceID uuid.UUID, 
 	return m.Path, headers, nil
 }
 
+func (s *importerService) InspectStrapi(ctx context.Context, urlStr, token, collectionType string) ([]string, error) {
+	strapiURL := strings.TrimSuffix(urlStr, "/")
+	endpoint := collectionType
+	if !strings.HasPrefix(endpoint, "/") {
+		endpoint = "/" + endpoint
+	}
+	if !strings.HasPrefix(endpoint, "/api/") && !strings.HasPrefix(endpoint, "/api") {
+		endpoint = "/api" + endpoint
+	}
+
+	reqURL := fmt.Sprintf("%s%s?pagination[pageSize]=1", strapiURL, endpoint)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call Strapi endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("strapi returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON response: %w", err)
+	}
+
+	dataVal, exists := result["data"]
+	if !exists {
+		return nil, fmt.Errorf("invalid Strapi response structure (missing 'data' key)")
+	}
+
+	var dataList []interface{}
+	if list, ok := dataVal.([]interface{}); ok {
+		dataList = list
+	} else if item, ok := dataVal.(map[string]interface{}); ok {
+		dataList = []interface{}{item}
+	}
+
+	if len(dataList) == 0 {
+		return nil, fmt.Errorf("no content found in collection type '%s' to inspect fields", collectionType)
+	}
+
+	firstItem, ok := dataList[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid format for data item")
+	}
+
+	fieldsMap := make(map[string]bool)
+	// Add root fields
+	for k := range firstItem {
+		if k != "attributes" {
+			fieldsMap[k] = true
+		}
+	}
+
+	// Add attributes fields (Strapi v4)
+	if attrs, ok := firstItem["attributes"].(map[string]interface{}); ok {
+		for k := range attrs {
+			fieldsMap[k] = true
+		}
+	}
+
+	fields := make([]string, 0, len(fieldsMap))
+	for k := range fieldsMap {
+		fields = append(fields, k)
+	}
+
+	return fields, nil
+}
+
+func (s *importerService) ImportStrapiBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, urlStr, token, collectionType string, mapping map[string]string, defaultStatus, defaultPostType string) {
+	bgCtx := context.Background()
+
+	logEntity := &ImportLog{}
+	if err := s.db.Where("id = ?", logID).First(logEntity).Error; err != nil {
+		return
+	}
+
+	updateLogStatus := func(status string, result ImportResult, errorsList []string) {
+		logEntity.Status = status
+		logEntity.PostsCount = result.PostsCount
+		logEntity.PagesCount = result.PagesCount
+		logEntity.MediaCount = result.MediaCount
+		logEntity.TaxCount = result.TaxCount
+		logEntity.SkippedCount = result.SkippedCount
+
+		errorsJSON, _ := json.Marshal(errorsList)
+		logEntity.Errors = string(errorsJSON)
+
+		summaryJSON, _ := json.Marshal(result)
+		logEntity.Summary = string(summaryJSON)
+
+		s.db.Save(logEntity)
+	}
+
+	result := ImportResult{}
+	var errorsList []string
+
+	strapiURL := strings.TrimSuffix(urlStr, "/")
+	endpoint := collectionType
+	if !strings.HasPrefix(endpoint, "/") {
+		endpoint = "/" + endpoint
+	}
+	if !strings.HasPrefix(endpoint, "/api/") && !strings.HasPrefix(endpoint, "/api") {
+		endpoint = "/api" + endpoint
+	}
+
+	page := 1
+	pageSize := 25
+	hasMore := true
+
+	getVal := func(itemMap map[string]interface{}, field string) interface{} {
+		key, ok := mapping[field]
+		if !ok || key == "" {
+			return nil
+		}
+		// First check in attributes if available (v4)
+		if attrs, ok := itemMap["attributes"].(map[string]interface{}); ok {
+			if val, ok := attrs[key]; ok {
+				return val
+			}
+		}
+		// Fallback to root map
+		return itemMap[key]
+	}
+
+	getStrapiMediaURL := func(val interface{}, strapiURL string) string {
+		if val == nil {
+			return ""
+		}
+		if str, ok := val.(string); ok {
+			if str == "" {
+				return ""
+			}
+			if !strings.HasPrefix(str, "http://") && !strings.HasPrefix(str, "https://") {
+				return strings.TrimSuffix(strapiURL, "/") + "/" + strings.TrimPrefix(str, "/")
+			}
+			return str
+		}
+		if m, ok := val.(map[string]interface{}); ok {
+			if urlVal, ok := m["url"].(string); ok && urlVal != "" {
+				if !strings.HasPrefix(urlVal, "http://") && !strings.HasPrefix(urlVal, "https://") {
+					return strings.TrimSuffix(strapiURL, "/") + "/" + strings.TrimPrefix(urlVal, "/")
+				}
+				return urlVal
+			}
+			if dataVal, ok := m["data"].(map[string]interface{}); ok {
+				if attrs, ok := dataVal["attributes"].(map[string]interface{}); ok {
+					if urlVal, ok := attrs["url"].(string); ok && urlVal != "" {
+						if !strings.HasPrefix(urlVal, "http://") && !strings.HasPrefix(urlVal, "https://") {
+							return strings.TrimSuffix(strapiURL, "/") + "/" + strings.TrimPrefix(urlVal, "/")
+						}
+						return urlVal
+					}
+				}
+				if urlVal, ok := dataVal["url"].(string); ok && urlVal != "" {
+					if !strings.HasPrefix(urlVal, "http://") && !strings.HasPrefix(urlVal, "https://") {
+						return strings.TrimSuffix(strapiURL, "/") + "/" + strings.TrimPrefix(urlVal, "/")
+					}
+					return urlVal
+				}
+			}
+		}
+		return ""
+	}
+
+	for hasMore {
+		reqURL := fmt.Sprintf("%s%s?pagination[page]=%d&pagination[pageSize]=%d", strapiURL, endpoint, page, pageSize)
+		req, err := http.NewRequestWithContext(bgCtx, "GET", reqURL, nil)
+		if err != nil {
+			errorsList = append(errorsList, fmt.Sprintf("Failed to create request: %v", err))
+			updateLogStatus("failed", result, errorsList)
+			return
+		}
+
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+
+		client := &http.Client{Timeout: 15 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			errorsList = append(errorsList, fmt.Sprintf("Failed to fetch Strapi page %d: %v", page, err))
+			updateLogStatus("failed", result, errorsList)
+			return
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			errorsList = append(errorsList, fmt.Sprintf("Strapi API returned status %d on page %d: %s", resp.StatusCode, page, string(bodyBytes)))
+			updateLogStatus("failed", result, errorsList)
+			return
+		}
+
+		var apiResp map[string]interface{}
+		decodeErr := json.NewDecoder(resp.Body).Decode(&apiResp)
+		resp.Body.Close()
+		if decodeErr != nil {
+			errorsList = append(errorsList, fmt.Sprintf("Failed to decode JSON from Strapi on page %d: %v", page, decodeErr))
+			updateLogStatus("failed", result, errorsList)
+			return
+		}
+
+		dataVal, exists := apiResp["data"]
+		if !exists {
+			errorsList = append(errorsList, fmt.Sprintf("No 'data' field found in response on page %d", page))
+			updateLogStatus("failed", result, errorsList)
+			return
+		}
+
+		var items []interface{}
+		if list, ok := dataVal.([]interface{}); ok {
+			items = list
+		} else if item, ok := dataVal.(map[string]interface{}); ok {
+			items = []interface{}{item}
+		}
+
+		if len(items) == 0 {
+			hasMore = false
+			break
+		}
+
+		for itemIdx, itemVal := range items {
+			itemMap, ok := itemVal.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			titleVal := getVal(itemMap, "title")
+			title := ""
+			if titleVal != nil {
+				title = fmt.Sprintf("%v", titleVal)
+			}
+			if title == "" {
+				result.SkippedCount++
+				errorsList = append(errorsList, fmt.Sprintf("Page %d item %d: title is empty, skipped", page, itemIdx+1))
+				continue
+			}
+
+			contentVal := getVal(itemMap, "content")
+			content := ""
+			if contentVal != nil {
+				content = fmt.Sprintf("%v", contentVal)
+			}
+
+			excerptVal := getVal(itemMap, "excerpt")
+			excerpt := ""
+			if excerptVal != nil {
+				excerpt = fmt.Sprintf("%v", excerptVal)
+			}
+
+			slugVal := getVal(itemMap, "slug")
+			slug := ""
+			if slugVal != nil {
+				slug = fmt.Sprintf("%v", slugVal)
+			}
+
+			statusVal := getVal(itemMap, "status")
+			status := ""
+			if statusVal != nil {
+				status = strings.ToLower(fmt.Sprintf("%v", statusVal))
+			}
+
+			postTypeVal := getVal(itemMap, "post_type")
+			postType := ""
+			if postTypeVal != nil {
+				postType = strings.ToLower(fmt.Sprintf("%v", postTypeVal))
+			}
+
+			publishedAtVal := getVal(itemMap, "published_at")
+			publishedAtStr := ""
+			if publishedAtVal != nil {
+				publishedAtStr = fmt.Sprintf("%v", publishedAtVal)
+			}
+
+			featureImageVal := getVal(itemMap, "feature_image")
+
+			if status == "" {
+				status = defaultStatus
+			}
+			if status == "" {
+				status = "draft"
+			}
+			if status != "draft" && status != "published" && status != "scheduled" && status != "archived" {
+				status = "draft"
+			}
+
+			if postType == "" {
+				postType = defaultPostType
+			}
+			if postType == "" {
+				postType = "post"
+			}
+
+			if slug == "" {
+				slug = helpers.Slugify(title)
+			}
+
+			originalSlug := slug
+			counter := 1
+			for {
+				existing, _ := s.postRepo.FindBySlug(bgCtx, workspaceID, slug)
+				if existing == nil {
+					break
+				}
+				slug = fmt.Sprintf("%s-%d", originalSlug, counter)
+				counter++
+			}
+
+			var publishedAt *time.Time
+			if publishedAtStr != "" {
+				formats := []string{
+					time.RFC3339,
+					"2006-01-02 15:04:05",
+					"2006-01-02 15:04",
+					"2006-01-02",
+				}
+				for _, fmtStr := range formats {
+					t, err := time.Parse(fmtStr, publishedAtStr)
+					if err == nil {
+						publishedAt = &t
+						break
+					}
+				}
+			}
+			if publishedAt == nil && status == "published" {
+				now := time.Now()
+				publishedAt = &now
+			}
+
+			featureImageURL := ""
+			resolvedImgURL := getStrapiMediaURL(featureImageVal, urlStr)
+			if resolvedImgURL != "" {
+				imgData, imgMime, err := s.downloadImage(bgCtx, resolvedImgURL)
+				if err != nil {
+					errorsList = append(errorsList, fmt.Sprintf("Page %d item %d: failed to download feature image %s: %v", page, itemIdx+1, resolvedImgURL, err))
+				} else {
+					u, parseErr := url.Parse(resolvedImgURL)
+					filename := "feature_image"
+					if parseErr == nil {
+						filename = filepath.Base(u.Path)
+					}
+					if ext := s.mimeToExt(imgMime); ext != "" && !strings.HasSuffix(filename, ext) {
+						filename = filename + ext
+					}
+
+					m, err := s.mediaSvc.SaveFile(bgCtx, workspaceID, filename, imgData, imgMime, int64(len(imgData)), "Featured Image for "+title, "")
+					if err != nil {
+						errorsList = append(errorsList, fmt.Sprintf("Page %d item %d: failed to save feature image to storage: %v", page, itemIdx+1, err))
+					} else {
+						featureImageURL = m.Path
+						result.MediaCount++
+					}
+				}
+			}
+
+			p := &post.Post{
+				ID:           uuid.New(),
+				Title:        title,
+				Slug:         slug,
+				Content:      content,
+				Excerpt:      excerpt,
+				Status:       status,
+				AuthorID:     authorID,
+				WorkspaceID:  workspaceID,
+				PostType:     postType,
+				PublishedAt:  publishedAt,
+				FeatureImage: featureImageURL,
+			}
+
+			if err := s.postRepo.Create(bgCtx, p); err != nil {
+				errorsList = append(errorsList, fmt.Sprintf("Page %d item %d: failed to create post: %v", page, itemIdx+1, err))
+				continue
+			}
+
+			revision := &post.PostRevision{
+				ID:           uuid.New(),
+				PostID:       p.ID,
+				Title:        p.Title,
+				Content:      p.Content,
+				Excerpt:      p.Excerpt,
+				AuthorID:     authorID,
+				FeatureImage: p.FeatureImage,
+			}
+			s.postRepo.CreateRevision(bgCtx, revision)
+
+			if postType == "post" {
+				result.PostsCount++
+			} else {
+				result.PagesCount++
+			}
+		}
+
+		if len(items) < pageSize {
+			hasMore = false
+		} else {
+			if metaVal, exists := apiResp["meta"]; exists {
+				if metaMap, ok := metaVal.(map[string]interface{}); ok {
+					if pagVal, ok := metaMap["pagination"].(map[string]interface{}); ok {
+						if pageCountVal, ok := pagVal["pageCount"]; ok {
+							var pageCount int
+							switch v := pageCountVal.(type) {
+							case float64:
+								pageCount = int(v)
+							case int:
+								pageCount = v
+							}
+							if page >= pageCount {
+								hasMore = false
+							}
+						}
+					}
+				}
+			}
+			page++
+		}
+	}
+
+	updateLogStatus("completed", result, errorsList)
+}
+
+

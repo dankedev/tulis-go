@@ -361,3 +361,160 @@ func (h *ImporterHandler) StartCSVImport(c *fiber.Ctx) error {
 	return response.Success(c, log, "CSV import started in the background")
 }
 
+type InspectStrapiReq struct {
+	StrapiURL      string `json:"strapi_url"`
+	APIToken       string `json:"api_token"`
+	CollectionType string `json:"collection_type"`
+}
+
+type StartStrapiImportReq struct {
+	StrapiURL       string            `json:"strapi_url"`
+	APIToken        string            `json:"api_token"`
+	CollectionType  string            `json:"collection_type"`
+	Mapping         map[string]string `json:"mapping"`
+	DefaultStatus   string            `json:"default_status"`
+	DefaultPostType string            `json:"default_post_type"`
+}
+
+// InspectStrapi godoc
+// @Summary Inspect Strapi schema fields
+// @Description Fetches sample data from a Strapi endpoint and extracts its schema keys
+// @Tags Importer
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param req body InspectStrapiReq true "Strapi connection details"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/plugins/importer/strapi/inspect [post]
+func (h *ImporterHandler) InspectStrapi(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// Check if strapi-import plugin is enabled
+	plugins, err := h.pluginSvc.ListPlugins(c.Context(), workspaceID)
+	if err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to verify plugin status", nil)
+	}
+	var importEnabled bool
+	for _, p := range plugins {
+		if p.ID == "strapi-import" {
+			importEnabled = p.Enabled
+			break
+		}
+	}
+	if !importEnabled {
+		return response.Error(c, "FORBIDDEN", "Plugin Strapi API Import must be enabled to perform this action", nil)
+	}
+
+	var req InspectStrapiReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	if req.StrapiURL == "" {
+		return response.Error(c, "BAD_REQUEST", "strapi_url is required", nil)
+	}
+	if req.CollectionType == "" {
+		return response.Error(c, "BAD_REQUEST", "collection_type is required", nil)
+	}
+
+	fields, err := h.svc.InspectStrapi(c.Context(), req.StrapiURL, req.APIToken, req.CollectionType)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, fiber.Map{
+		"fields": fields,
+	}, "Strapi collection fields retrieved successfully")
+}
+
+// StartStrapiImport godoc
+// @Summary Start background Strapi content import
+// @Description Fetches content from Strapi in the background and saves it to the database
+// @Tags Importer
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param req body StartStrapiImportReq true "Strapi import details and field mappings"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Router /api/plugins/importer/strapi/import [post]
+func (h *ImporterHandler) StartStrapiImport(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// Check if strapi-import plugin is enabled
+	plugins, err := h.pluginSvc.ListPlugins(c.Context(), workspaceID)
+	if err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to verify plugin status", nil)
+	}
+	var importEnabled bool
+	for _, p := range plugins {
+		if p.ID == "strapi-import" {
+			importEnabled = p.Enabled
+			break
+		}
+	}
+	if !importEnabled {
+		return response.Error(c, "FORBIDDEN", "Plugin Strapi API Import must be enabled to perform this action", nil)
+	}
+
+	userIDStr := c.Locals("user_id")
+	if userIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	var req StartStrapiImportReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	if req.StrapiURL == "" {
+		return response.Error(c, "BAD_REQUEST", "strapi_url is required", nil)
+	}
+	if req.CollectionType == "" {
+		return response.Error(c, "BAD_REQUEST", "collection_type is required", nil)
+	}
+
+	log := &ImportLog{
+		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
+		AuthorID:    authorID,
+		Filename:    fmt.Sprintf("Strapi: %s", req.CollectionType),
+		Status:      "running",
+	}
+
+	if err := h.svc.(*importerService).db.WithContext(c.Context()).Create(log).Error; err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to create import session log", nil)
+	}
+
+	// Start asynchronous background process
+	go h.svc.ImportStrapiBackground(context.Background(), workspaceID, authorID, log.ID, req.StrapiURL, req.APIToken, req.CollectionType, req.Mapping, req.DefaultStatus, req.DefaultPostType)
+
+	return response.Success(c, log, "Strapi import started in the background")
+}
+
+
