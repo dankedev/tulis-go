@@ -73,4 +73,12 @@ var AvailablePlugins = []PluginManifest{
 		Version:     "1.0.0",
 		SettingsSchema: map[string]FieldSchema{},
 	},
+	{
+		ID:          "strapi-import",
+		Name:        "Strapi API Import",
+		Description: "Import posts, pages, and media from your Strapi CMS v4/v5 instance using REST API.",
+		Version:     "1.0.0",
+		SettingsSchema: map[string]FieldSchema{},
+	},
 }
+

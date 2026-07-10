@@ -31,6 +31,8 @@ type ImporterService interface {
 	ParseCSVHeaders(ctx context.Context, file io.Reader) ([]string, error)
 	UploadCSV(ctx context.Context, workspaceID uuid.UUID, filename string, fileData []byte) (string, []string, error)
 	ImportCSVBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, fileURL string, mapping map[string]string, defaultStatus, defaultPostType string)
+	InspectStrapi(ctx context.Context, urlStr, token, collectionType string) ([]string, error)
+	ImportStrapiBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, urlStr, token, collectionType string, mapping map[string]string, defaultStatus, defaultPostType string)
 }
 
 type importerService struct {
