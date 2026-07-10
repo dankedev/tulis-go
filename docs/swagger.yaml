@@ -1,4 +1,13 @@
 definitions:
+  domain_importer.InspectStrapiReq:
+    properties:
+      api_token:
+        type: string
+      collection_type:
+        type: string
+      strapi_url:
+        type: string
+    type: object
   domain_importer.StartCSVImportReq:
     properties:
       default_post_type:
@@ -11,6 +20,23 @@ definitions:
         additionalProperties:
           type: string
         type: object
+    type: object
+  domain_importer.StartStrapiImportReq:
+    properties:
+      api_token:
+        type: string
+      collection_type:
+        type: string
+      default_post_type:
+        type: string
+      default_status:
+        type: string
+      mapping:
+        additionalProperties:
+          type: string
+        type: object
+      strapi_url:
+        type: string
     type: object
   domain_plugin.SaveSettingsReq:
     properties:
@@ -34,9 +60,21 @@ definitions:
         type: string
       feature_image:
         type: string
+      focus_keyword:
+        type: string
+      ogp_desc:
+        type: string
+      ogp_image:
+        type: string
+      ogp_title:
+        type: string
       post_type:
         type: string
       published_at:
+        type: string
+      seo_desc:
+        type: string
+      seo_title:
         type: string
       slug:
         description: optional
@@ -108,9 +146,21 @@ definitions:
         type: string
       feature_image:
         type: string
+      focus_keyword:
+        type: string
+      ogp_desc:
+        type: string
+      ogp_image:
+        type: string
+      ogp_title:
+        type: string
       post_type:
         type: string
       published_at:
+        type: string
+      seo_desc:
+        type: string
+      seo_title:
         type: string
       slug:
         type: string
@@ -885,6 +935,98 @@ paths:
       security:
       - BearerAuth: []
       summary: Get import log by ID
+      tags:
+      - Importer
+  /api/plugins/importer/strapi/import:
+    post:
+      consumes:
+      - application/json
+      description: Fetches content from Strapi in the background and saves it to the
+        database
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Strapi import details and field mappings
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain_importer.StartStrapiImportReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start background Strapi content import
+      tags:
+      - Importer
+  /api/plugins/importer/strapi/inspect:
+    post:
+      consumes:
+      - application/json
+      description: Fetches sample data from a Strapi endpoint and extracts its schema
+        keys
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Strapi connection details
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain_importer.InspectStrapiReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Inspect Strapi schema fields
       tags:
       - Importer
   /api/plugins/importer/upload:
@@ -2142,6 +2284,30 @@ paths:
       tags:
       - Workspaces
   /api/workspaces/{id}/invitations:
+    get:
+      description: Returns all invitations sent by this workspace
+      parameters:
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Workspace UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List workspace invitations
+      tags:
+      - Workspace Invitations
     post:
       consumes:
       - application/json
@@ -2171,6 +2337,36 @@ paths:
       security:
       - BearerAuth: []
       summary: Invite collaborator to workspace
+      tags:
+      - Workspace Invitations
+  /api/workspaces/{id}/invitations/{inviteId}:
+    delete:
+      description: Cancels a pending invitation
+      parameters:
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Workspace UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invitation UUID
+        in: path
+        name: inviteId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Revoke / Cancel workspace invitation
       tags:
       - Workspace Invitations
   /api/workspaces/{id}/members:

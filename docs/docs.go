@@ -914,6 +914,142 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/plugins/importer/strapi/import": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetches content from Strapi in the background and saves it to the database",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Importer"
+                ],
+                "summary": "Start background Strapi content import",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workspace ID",
+                        "name": "X-Workspace-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Strapi import details and field mappings",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain_importer.StartStrapiImportReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plugins/importer/strapi/inspect": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetches sample data from a Strapi endpoint and extracts its schema keys",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Importer"
+                ],
+                "summary": "Inspect Strapi schema fields",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workspace ID",
+                        "name": "X-Workspace-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Strapi connection details",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain_importer.InspectStrapiReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/plugins/importer/upload": {
             "post": {
                 "security": [
@@ -2934,6 +3070,43 @@ const docTemplate = `{
             }
         },
         "/api/workspaces/{id}/invitations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all invitations sent by this workspace",
+                "tags": [
+                    "Workspace Invitations"
+                ],
+                "summary": "List workspace invitations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workspace ID",
+                        "name": "X-Workspace-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workspace UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -2970,6 +3143,52 @@ const docTemplate = `{
                                 "type": "string"
                             }
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/workspaces/{id}/invitations/{inviteId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancels a pending invitation",
+                "tags": [
+                    "Workspace Invitations"
+                ],
+                "summary": "Revoke / Cancel workspace invitation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workspace ID",
+                        "name": "X-Workspace-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workspace UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Invitation UUID",
+                        "name": "inviteId",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -3270,6 +3489,20 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain_importer.InspectStrapiReq": {
+            "type": "object",
+            "properties": {
+                "api_token": {
+                    "type": "string"
+                },
+                "collection_type": {
+                    "type": "string"
+                },
+                "strapi_url": {
+                    "type": "string"
+                }
+            }
+        },
         "domain_importer.StartCSVImportReq": {
             "type": "object",
             "properties": {
@@ -3287,6 +3520,32 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "domain_importer.StartStrapiImportReq": {
+            "type": "object",
+            "properties": {
+                "api_token": {
+                    "type": "string"
+                },
+                "collection_type": {
+                    "type": "string"
+                },
+                "default_post_type": {
+                    "type": "string"
+                },
+                "default_status": {
+                    "type": "string"
+                },
+                "mapping": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "strapi_url": {
+                    "type": "string"
                 }
             }
         },
@@ -3323,10 +3582,28 @@ const docTemplate = `{
                 "feature_image": {
                     "type": "string"
                 },
+                "focus_keyword": {
+                    "type": "string"
+                },
+                "ogp_desc": {
+                    "type": "string"
+                },
+                "ogp_image": {
+                    "type": "string"
+                },
+                "ogp_title": {
+                    "type": "string"
+                },
                 "post_type": {
                     "type": "string"
                 },
                 "published_at": {
+                    "type": "string"
+                },
+                "seo_desc": {
+                    "type": "string"
+                },
+                "seo_title": {
                     "type": "string"
                 },
                 "slug": {
@@ -3431,10 +3708,28 @@ const docTemplate = `{
                 "feature_image": {
                     "type": "string"
                 },
+                "focus_keyword": {
+                    "type": "string"
+                },
+                "ogp_desc": {
+                    "type": "string"
+                },
+                "ogp_image": {
+                    "type": "string"
+                },
+                "ogp_title": {
+                    "type": "string"
+                },
                 "post_type": {
                     "type": "string"
                 },
                 "published_at": {
+                    "type": "string"
+                },
+                "seo_desc": {
+                    "type": "string"
+                },
+                "seo_title": {
                     "type": "string"
                 },
                 "slug": {

@@ -15,6 +15,7 @@ package importer
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strconv"
