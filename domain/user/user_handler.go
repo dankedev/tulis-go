@@ -531,6 +531,10 @@ func (h *AuthHandler) AdminUpdateUser(c *fiber.Ctx) error {
 		user.Name = req.Name
 	}
 	if req.Role != "" {
+		authUserIDStr := c.Locals("user_id")
+		if authUserIDStr != nil && authUserIDStr.(string) == idStr && user.Role != req.Role {
+			return response.Error(c, "FORBIDDEN", "Anda tidak dapat mengubah role Anda sendiri", nil)
+		}
 		user.Role = req.Role
 	}
 	if req.Status != "" {
@@ -557,7 +561,16 @@ func (h *AuthHandler) AdminDeleteUser(c *fiber.Ctx) error {
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid user ID", nil)
 	}
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr != nil && authUserIDStr.(string) == idStr {
+		return response.Error(c, "FORBIDDEN", "Anda tidak dapat menghapus akun Anda sendiri melalui halaman ini", nil)
+	}
 
+	// Check if only one user left
+	users, err := h.userSvc.ListUsers(c.Context())
+	if err == nil && len(users) <= 1 {
+		return response.Error(c, "FORBIDDEN", "Tidak dapat menghapus pengguna satu-satunya dalam sistem", nil)
+	}
 	if err := h.userSvc.DeleteUser(c.Context(), id); err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}

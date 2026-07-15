@@ -77,6 +77,23 @@ func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		if err := tx.WithContext(ctx).Delete(&WorkspaceMember{}, "workspace_id = ?", id).Error; err != nil {
 			return err
 		}
+		// Soft delete workspace invitations
+		if err := tx.WithContext(ctx).Delete(&WorkspaceInvitation{}, "workspace_id = ?", id).Error; err != nil {
+			return err
+		}
+		// Soft delete other related entities via raw queries since their structs are in other packages to avoid cyclic dependencies
+		now := time.Now()
+		tables := []string{"posts", "post_revisions", "taxonomies", "media"}
+		for _, table := range tables {
+			if err := tx.WithContext(ctx).Table(table).Where("workspace_id = ? AND deleted_at IS NULL", id).Update("deleted_at", now).Error; err != nil {
+				return err
+			}
+		}
+
+		// post_taxonomies is a join table. Usually it doesn't have deleted_at, so we can delete the relations,
+		// or let them be since the parent posts/taxonomies are soft deleted.
+		// Actually, we can just delete from post_taxonomies for the soft-deleted posts, but it's okay to skip for soft delete.
+		
 		return nil
 	})
 }
