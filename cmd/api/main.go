@@ -14,6 +14,7 @@ import (
 	"github.com/dankedev/tulis-go/domain/media"
 	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/domain/post"
+	"github.com/dankedev/tulis-go/domain/setup"
 	"github.com/dankedev/tulis-go/domain/user"
 	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/dankedev/tulis-go/middleware"
@@ -73,6 +74,9 @@ func SetupApp() *fiber.App {
 		userHandler := user.NewAuthHandler(userSvc)
 		oauthSvc := user.NewOAuthService(userRepo, wsRepo, jwtSvc)
 		oauthHandler := user.NewOAuthHandler(oauthSvc)
+
+		setupSvc := setup.NewSetupService(userRepo, userSvc, wsSvc)
+		setupHandler := setup.NewSetupHandler(setupSvc)
 
 		pluginRepo := plugin.NewRepository(config.DB)
 		pluginSvc := plugin.NewService(pluginRepo)
@@ -137,6 +141,7 @@ func SetupApp() *fiber.App {
 		// 2. ADMIN & AUTHENTICATED MANAGEMENT ROUTING
 		// ----------------------------------------------------
 		api := app.Group("/api")
+		routes.RegisterSetupRoutes(api, setupHandler)
 		routes.RegisterUserPublicRoutes(api, userHandler)
 		routes.RegisterWorkspacePublicRoutes(api, wsHandler)
 		routes.RegisterOAuthRoutes(api, oauthHandler)
