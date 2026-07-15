@@ -3,6 +3,7 @@ package user
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -84,10 +85,14 @@ func (h *OAuthHandler) OAuthCallback(c *fiber.Ctx) error {
 
 	user, token, ws, err := h.oauthSvc.HandleCallback(c.Context(), provider, code, state)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  fiber.StatusUnauthorized,
-			"message": "OAuth authentication failed: " + err.Error(),
-		})
+		frontendBase := "http://localhost:3000"
+		if config.AppConfig != nil && config.AppConfig.AppEnv == "production" {
+			frontendBase = "https://app.tulis.org"
+		}
+		if errors.Is(err, ErrRegistrationDisabled) {
+			return c.Redirect(frontendBase+"/login?error=registration_disabled", fiber.StatusTemporaryRedirect)
+		}
+		return c.Redirect(frontendBase+"/login?error=oauth_failed", fiber.StatusTemporaryRedirect)
 	}
 
 	frontendURL := getFrontendCallbackURL(token, user, ws)

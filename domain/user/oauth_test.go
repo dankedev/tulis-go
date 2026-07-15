@@ -336,6 +336,44 @@ func TestFindOrCreateUserExistingUser(t *testing.T) {
 	}
 }
 
+func TestFindOrCreateUser_RegistrationDisabled(t *testing.T) {
+	config.AppConfig.AllowRegistration = false
+	defer func() {
+		config.AppConfig.AllowRegistration = true
+	}()
+
+	jwtSvc := jwt.NewJWTService("test-secret", 24*time.Hour)
+	repo := &mockUserRepo{}
+	wsRepo := &mockOAuthWorkspaceRepo{}
+	svc := NewOAuthService(repo, wsRepo, jwtSvc)
+
+	ctx := context.Background()
+
+	// 1. New user registration should fail
+	_, _, _, err := svc.(*oauthService).findOrCreateUser(ctx, ProviderGoogle, "123", "new@example.com", "New User", "https://avatar.url", true)
+	if err != ErrRegistrationDisabled {
+		t.Errorf("expected ErrRegistrationDisabled, got %v", err)
+	}
+
+	// 2. Existing user login should still succeed
+	existingUser := &User{
+		ID:       uuid.New(),
+		Email:    "existing@example.com",
+		Name:     "Existing User",
+		Role:     "subscriber",
+	}
+	repo.users = append(repo.users, *existingUser)
+
+	user, token, _, err := svc.(*oauthService).findOrCreateUser(ctx, ProviderGoogle, "123", "existing@example.com", "Existing User", "https://avatar.url", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if user == nil || token == "" {
+		t.Fatal("expected user and token to be non-nil")
+	}
+}
+
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }

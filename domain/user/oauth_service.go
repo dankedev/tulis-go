@@ -20,8 +20,9 @@ import (
 
 var (
 	ErrUnsupportedProvider = errors.New("unsupported OAuth provider")
-	ErrInvalidCode        = errors.New("invalid authorization code")
-	ErrEmailNotRetrieved  = errors.New("could not retrieve email from provider")
+	ErrInvalidCode         = errors.New("invalid authorization code")
+	ErrEmailNotRetrieved   = errors.New("could not retrieve email from provider")
+	ErrRegistrationDisabled = errors.New("registration is disabled")
 )
 
 type OAuthProvider string
@@ -401,6 +402,10 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, provider OAuthProvi
 	}
 
 	// User doesn't exist - create new user
+	if config.AppConfig != nil && !config.AppConfig.AllowRegistration {
+		return nil, "", nil, ErrRegistrationDisabled
+	}
+
 	newUser := &User{
 		ID:              uuid.New(),
 		Email:           email,

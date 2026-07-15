@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/dankedev/tulis-go/domain/workspace"
-	"github.com/dankedev/tulis-go/middleware"
 	"github.com/dankedev/tulis-go/utils/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -79,7 +79,7 @@ func TestUserServiceAndHandler(t *testing.T) {
 	app.Post("/api/login", handler.Login)
 
 	// Protected Routes (guarded by AuthGuard)
-	api := app.Group("/api", middleware.AuthGuard(jwtSvc))
+	api := app.Group("/api", authGuard(jwtSvc))
 	api.Get("/users/me", handler.Me)
 	api.Get("/users/:id", handler.GetUserByID)
 	api.Put("/users/:id", handler.UpdateProfile)
@@ -272,3 +272,23 @@ func TestUserServiceAndHandler(t *testing.T) {
 		}
 	})
 }
+
+func authGuard(jwtSvc jwt.JWTService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Missing authorization header"})
+		}
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid authorization header format"})
+		}
+		userID, err := jwtSvc.GetUserIDFromToken(parts[1])
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid or expired token"})
+		}
+		c.Locals("user_id", userID.String())
+		return c.Next()
+	}
+}
+
