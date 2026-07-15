@@ -450,4 +450,84 @@ func (h *AuthHandler) RegisterByInvitation(c *fiber.Ctx) error {
 	}, "Pendaftaran via undangan berhasil")
 }
 
+// AdminListUsers godoc
+// @Summary List all users (Superadmin only)
+// @Tags Admin Users
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Router /api/admin/users [get]
+func (h *AuthHandler) AdminListUsers(c *fiber.Ctx) error {
+	users, err := h.userSvc.ListUsers(c.Context())
+	if err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to get users", nil)
+	}
 
+	return response.Success(c, users, "Users retrieved successfully")
+}
+
+// AdminUpdateUser godoc
+// @Summary Update user details (Superadmin only)
+// @Tags Admin Users
+// @Security BearerAuth
+// @Param id path string true "User UUID"
+// @Param request body map[string]interface{} true "Fields to update"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/admin/users/{id} [put]
+func (h *AuthHandler) AdminUpdateUser(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid user ID", nil)
+	}
+
+	var req struct {
+		Name   string `json:"name"`
+		Role   string `json:"role"`
+		Status string `json:"status"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	user, err := h.userSvc.GetByID(c.Context(), id)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", "User not found", nil)
+	}
+
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+	if req.Role != "" {
+		user.Role = req.Role
+	}
+	if req.Status != "" {
+		user.Status = req.Status
+	}
+
+	if err := h.userSvc.Update(c.Context(), user); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, user, "User updated successfully")
+}
+
+// AdminDeleteUser godoc
+// @Summary Delete user (Superadmin only)
+// @Tags Admin Users
+// @Security BearerAuth
+// @Param id path string true "User UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/admin/users/{id} [delete]
+func (h *AuthHandler) AdminDeleteUser(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid user ID", nil)
+	}
+
+	if err := h.userSvc.DeleteUser(c.Context(), id); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "User deleted successfully")
+}

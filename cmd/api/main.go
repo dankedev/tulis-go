@@ -149,6 +149,11 @@ func SetupApp() *fiber.App {
 		authGroup := api.Group("")
 		authGroup.Use(middleware.AuthGuard(jwtSvc))
 
+		// Admin-scoped routes (requires authentication + superadmin)
+		adminGroup := authGroup.Group("/admin")
+		adminGroup.Use(middleware.RequireSystemSuperadmin(userSvc))
+		routes.RegisterAdminRoutes(adminGroup, userHandler, wsHandler)
+
 		// Register routes that ONLY require auth (no tenant context)
 		routes.RegisterUserAuthRoutes(authGroup, userHandler)
 		routes.RegisterWorkspaceRoutes(authGroup, wsHandler)

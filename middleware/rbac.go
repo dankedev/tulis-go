@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"context"
+
+	"github.com/dankedev/tulis-go/domain/user"
 	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
@@ -55,6 +58,34 @@ func RequireRole(wsSvc workspace.WorkspaceService, requiredRole string) fiber.Ha
 
 		if userWeight < requiredWeight {
 			return response.Error(c, "FORBIDDEN", "Access denied: insufficient permissions", nil)
+		}
+
+		return c.Next()
+	}
+}
+
+// RequireSystemSuperadmin checks if the authenticated user has the system-wide superadmin role.
+func RequireSystemSuperadmin(userSvc interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*user.User, error)
+}) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userIDStr := c.Locals("user_id")
+		if userIDStr == nil {
+			return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+		}
+
+		userID, err := uuid.Parse(userIDStr.(string))
+		if err != nil {
+			return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+		}
+
+		u, err := userSvc.GetByID(c.Context(), userID)
+		if err != nil || u == nil {
+			return response.Error(c, "UNAUTHORIZED", "User not found", nil)
+		}
+
+		if u.Role != "superadmin" {
+			return response.Error(c, "FORBIDDEN", "Superadmin access required", nil)
 		}
 
 		return c.Next()

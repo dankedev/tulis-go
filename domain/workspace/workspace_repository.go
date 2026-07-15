@@ -15,6 +15,7 @@ type WorkspaceRepository interface {
 	Update(ctx context.Context, ws *Workspace) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]Workspace, error)
+	ListAll(ctx context.Context) ([]Workspace, error)
 
 	// Member operations
 	AddMember(ctx context.Context, member *WorkspaceMember) error
@@ -83,10 +84,15 @@ func (r *workspaceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *workspaceRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]Workspace, error) {
 	var workspaces []Workspace
 	err := r.db.WithContext(ctx).
-		Table("workspaces").
-		Joins("join workspace_members on workspace_members.workspace_id = workspaces.id").
-		Where("workspace_members.user_id = ? and workspaces.deleted_at is null and workspace_members.deleted_at is null", userID).
+		Joins("JOIN workspace_members ON workspace_members.workspace_id = workspaces.id").
+		Where("workspace_members.user_id = ? AND workspace_members.deleted_at IS NULL", userID).
 		Find(&workspaces).Error
+	return workspaces, err
+}
+
+func (r *workspaceRepository) ListAll(ctx context.Context) ([]Workspace, error) {
+	var workspaces []Workspace
+	err := r.db.WithContext(ctx).Find(&workspaces).Error
 	return workspaces, err
 }
 

@@ -76,6 +76,9 @@ func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *userRepository) ListAll(ctx context.Context) ([]User, error) {
 	var users []User
-	err := r.db.WithContext(ctx).Find(&users).Error
+	err := r.db.WithContext(ctx).
+		Preload("WorkspaceMembers").
+		Preload("WorkspaceMembers.Workspace").
+		Find(&users).Error
 	return users, err
 }

@@ -25,6 +25,7 @@ type WorkspaceService interface {
 	UpdateWorkspace(ctx context.Context, id uuid.UUID, name, slug string, settings map[string]interface{}) (*Workspace, error)
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
 	ListWorkspaces(ctx context.Context, userID uuid.UUID) ([]Workspace, error)
+	ListAllWorkspaces(ctx context.Context) ([]Workspace, error)
 
 	// Members
 	AddMember(ctx context.Context, workspaceID, userID uuid.UUID, role string) (*WorkspaceMember, error)
@@ -142,6 +143,10 @@ func (s *workspaceService) DeleteWorkspace(ctx context.Context, id uuid.UUID) er
 
 func (s *workspaceService) ListWorkspaces(ctx context.Context, userID uuid.UUID) ([]Workspace, error) {
 	return s.repo.ListByUser(ctx, userID)
+}
+
+func (s *workspaceService) ListAllWorkspaces(ctx context.Context) ([]Workspace, error) {
+	return s.repo.ListAll(ctx)
 }
 
 func (s *workspaceService) AddMember(ctx context.Context, workspaceID, userID uuid.UUID, role string) (*WorkspaceMember, error) {

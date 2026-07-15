@@ -514,5 +514,39 @@ func (h *WorkspaceHandler) RevokeInvitation(c *fiber.Ctx) error {
 	return response.Success(c, nil, "Undangan berhasil dibatalkan")
 }
 
+// AdminListWorkspaces godoc
+// @Summary List all workspaces (Superadmin only)
+// @Tags Admin Workspaces
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Router /api/admin/workspaces [get]
+func (h *WorkspaceHandler) AdminListWorkspaces(c *fiber.Ctx) error {
+	workspaces, err := h.svc.ListAllWorkspaces(c.Context())
+	if err != nil {
+		return response.Error(c, "INTERNAL_ERROR", "Failed to list workspaces", nil)
+	}
+	return response.Success(c, workspaces, "All workspaces retrieved successfully")
+}
 
+// AdminUpdateWorkspace godoc
+// @Summary Update any workspace (Superadmin only)
+// @Tags Admin Workspaces
+// @Security BearerAuth
+// @Param id path string true "Workspace UUID"
+// @Param request body UpdateWorkspaceReq true "Update fields"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/admin/workspaces/{id} [put]
+func (h *WorkspaceHandler) AdminUpdateWorkspace(c *fiber.Ctx) error {
+	return h.Update(c)
+}
 
+// AdminDeleteWorkspace godoc
+// @Summary Delete any workspace (Superadmin only)
+// @Tags Admin Workspaces
+// @Security BearerAuth
+// @Param id path string true "Workspace UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/admin/workspaces/{id} [delete]
+func (h *WorkspaceHandler) AdminDeleteWorkspace(c *fiber.Ctx) error {
+	return h.Delete(c)
+}

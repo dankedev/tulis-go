@@ -25,4 +25,7 @@ type WorkspaceMember struct {
 	// Joined/computed fields (ignored by GORM for persistence)
 	UserIDAlias uuid.UUID      `gorm:"-" json:"userID"` // to match camelCase `userID` expected by frontend settings
 	User        *UserDetail    `gorm:"-" json:"user,omitempty"`
+
+	// Relationship
+	Workspace   *Workspace     `gorm:"foreignKey:WorkspaceID" json:"workspace,omitempty"`
 }
