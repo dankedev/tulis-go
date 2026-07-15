@@ -90,9 +90,9 @@ func (h *OAuthHandler) OAuthCallback(c *fiber.Ctx) error {
 			frontendBase = "https://app.tulis.org"
 		}
 		if errors.Is(err, ErrRegistrationDisabled) {
-			return c.Redirect(frontendBase+"/login?error=registration_disabled", fiber.StatusTemporaryRedirect)
+			return c.Redirect(frontendBase+"/auth/callback?error=registration_disabled", fiber.StatusTemporaryRedirect)
 		}
-		return c.Redirect(frontendBase+"/login?error=oauth_failed", fiber.StatusTemporaryRedirect)
+		return c.Redirect(frontendBase+"/auth/callback?error=oauth_failed", fiber.StatusTemporaryRedirect)
 	}
 
 	frontendURL := getFrontendCallbackURL(token, user, ws)
