@@ -99,8 +99,9 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 			"id":         user.ID,
 			"name":       user.Name,
 			"email":      user.Email,
-			"role":       user.Role,
-			"created_at": user.CreatedAt,
+			"role":              user.Role,
+			"created_at":        user.CreatedAt,
+			"email_verified_at": user.EmailVerifiedAt,
 		},
 	}
 	if ws != nil {
@@ -142,8 +143,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			"id":         user.ID,
 			"name":       user.Name,
 			"email":      user.Email,
-			"role":       user.Role,
-			"created_at": user.CreatedAt,
+			"role":              user.Role,
+			"created_at":        user.CreatedAt,
+			"email_verified_at": user.EmailVerifiedAt,
 		},
 	}, "Login successful")
 }
@@ -179,8 +181,9 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 		"id":         user.ID,
 		"name":       user.Name,
 		"email":      user.Email,
-		"avatar_url": user.AvatarURL,
-		"role":       user.Role,
+		"avatar_url":        user.AvatarURL,
+		"role":              user.Role,
+		"email_verified_at": user.EmailVerifiedAt,
 	}, "User data retrieved successfully")
 }
 
@@ -214,8 +217,9 @@ func (h *AuthHandler) GetUserByID(c *fiber.Ctx) error {
 		"name":       user.Name,
 		"email":      user.Email,
 		"avatar_url": user.AvatarURL,
-		"role":       user.Role,
-		"created_at": user.CreatedAt,
+		"role":              user.Role,
+		"created_at":        user.CreatedAt,
+		"email_verified_at": user.EmailVerifiedAt,
 	}, "User retrieved successfully")
 }
 
@@ -275,8 +279,9 @@ func (h *AuthHandler) UpdateProfile(c *fiber.Ctx) error {
 		"name":       user.Name,
 		"email":      user.Email,
 		"avatar_url": user.AvatarURL,
-		"role":       user.Role,
-		"updated_at": user.UpdatedAt,
+		"role":              user.Role,
+		"updated_at":        user.UpdatedAt,
+		"email_verified_at": user.EmailVerifiedAt,
 	}, "User profile updated successfully")
 }
 
@@ -344,6 +349,33 @@ func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
 	}
 
 	return response.Success(c, nil, "Email Anda berhasil diverifikasi")
+}
+
+// ResendVerificationEmail godoc
+// @Summary Resend verification email
+// @Description Resends verification email to the authenticated user
+// @Tags Auth
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/me/resend-verification [post]
+func (h *AuthHandler) ResendVerificationEmail(c *fiber.Ctx) error {
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+
+	userID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	if err := h.userSvc.ResendVerificationEmail(c.Context(), userID); err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, nil, "Email verifikasi telah dikirim ulang")
 }
 
 // RequestPasswordReset godoc
@@ -439,8 +471,9 @@ func (h *AuthHandler) RegisterByInvitation(c *fiber.Ctx) error {
 			"id":         user.ID,
 			"name":       user.Name,
 			"email":      user.Email,
-			"role":       user.Role,
-			"created_at": user.CreatedAt,
+			"role":              user.Role,
+			"created_at":        user.CreatedAt,
+			"email_verified_at": user.EmailVerifiedAt,
 		},
 		"member": fiber.Map{
 			"id":           member.ID,

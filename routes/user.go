@@ -18,6 +18,7 @@ func RegisterUserAuthRoutes(authGroup fiber.Router, userHandler *user.AuthHandle
 	authGroup.Get("/me", userHandler.Me)
 	authGroup.Put("/me", userHandler.UpdateProfile)
 	authGroup.Put("/me/password", userHandler.ChangePassword)
+	authGroup.Post("/me/resend-verification", userHandler.ResendVerificationEmail)
 }
 
 func RegisterOAuthRoutes(api fiber.Router, oauthHandler *user.OAuthHandler) {

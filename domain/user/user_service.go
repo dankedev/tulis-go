@@ -37,6 +37,7 @@ type UserService interface {
 	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
 	VerifyEmail(ctx context.Context, token string) error
 	RequestPasswordReset(ctx context.Context, email string) error
+	ResendVerificationEmail(ctx context.Context, userID uuid.UUID) error
 	ResetPassword(ctx context.Context, token, newPassword string) error
 	RegisterWithInvitation(ctx context.Context, token, name, password string) (*User, string, *workspace.WorkspaceMember, error)
 	ListUsers(ctx context.Context) ([]User, error)
@@ -220,6 +221,27 @@ func (s *userService) VerifyEmail(ctx context.Context, token string) error {
 	user.EmailVerifiedAt = &now
 	user.VerificationToken = ""
 	return s.repo.Update(ctx, user)
+}
+
+func (s *userService) ResendVerificationEmail(ctx context.Context, userID uuid.UUID) error {
+	user, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	if user.EmailVerifiedAt != nil {
+		return errors.New("email sudah diverifikasi")
+	}
+
+	user.VerificationToken = uuid.New().String()
+	if err := s.repo.Update(ctx, user); err != nil {
+		return err
+	}
+
+	verifyLink := fmt.Sprintf("https://app.tulis.org/verify-email?token=%s", user.VerificationToken)
+	emailBody := mail.GetVerificationEmail(user.Name, verifyLink)
+	go mail.SendHTMLMail(user.Email, "Konfirmasi Email Anda - Tulis CMS", emailBody)
+
+	return nil
 }
 
 func (s *userService) RequestPasswordReset(ctx context.Context, email string) error {
