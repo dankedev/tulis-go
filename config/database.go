@@ -21,7 +21,9 @@ func ConnectDB() {
 	)
 	dialector := mysql.Open(dsn)
 
-	DB, err = gorm.Open(dialector, &gorm.Config{})
+	DB, err = gorm.Open(dialector, &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
