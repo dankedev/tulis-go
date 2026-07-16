@@ -213,8 +213,8 @@ func getLayout(title, content string) string {
             {{.Content}}
         </div>
         <div class="footer">
-            <p>Sent with ❤️ by {{.BrandName}} Team</p>
-            <p>If you have any questions, contact us at <a href="mailto:halo@tulis.org">halo@tulis.org</a></p>
+            <p>Dikirim dengan ❤️ oleh Tim {{.BrandName}}</p>
+            <p>Jika Anda memiliki pertanyaan, hubungi kami di <a href="mailto:halo@tulis.org">halo@tulis.org</a></p>
         </div>
     </div>
 </body>
@@ -230,25 +230,25 @@ func getLayout(title, content string) string {
 func GetVerificationEmail(name, link string) string {
 	content := fmt.Sprintf(`
 		<div class="badge">Selamat Datang</div>
-		<h2>Verify Your Email Address</h2>
-		<p>Hi %s,</p>
-		<p>Thank you for registering at Tulis CMS! We're excited to have you on board. Please click the button below to verify your email address and get started.</p>
+		<h2>Verifikasi Alamat Email Anda</h2>
+		<p>Halo %s,</p>
+		<p>Terima kasih telah mendaftar di Tulis CMS! Kami sangat senang menyambut Anda. Silakan klik tombol di bawah ini untuk memverifikasi alamat email Anda dan memulai.</p>
 		<div class="action-box">
-			<a href="%s" class="btn" target="_blank">Verify Email</a>
+			<a href="%s" class="btn" target="_blank">Verifikasi Email</a>
 		</div>
-		<p>If the button doesn't work, copy and paste this URL into your browser:</p>
+		<p>Jika tombol di atas tidak berfungsi, salin dan tempel URL berikut ke peramban Anda:</p>
 		<p style="word-break: break-all; font-size: 13px; color: #64748b;"><a href="%s">%s</a></p>
 	`, name, link, link, link)
-	return getLayout("Verify Email", content)
+	return getLayout("Verifikasi Email", content)
 }
 
 // GetInvitationEmail returns the template for workspace invitations.
 func GetInvitationEmail(workspaceName, inviterName, link, registrationLink string) string {
 	content := fmt.Sprintf(`
 		<div class="badge">Undangan Workspace</div>
-		<h2>You've Been Invited to Join %s</h2>
-		<p>Hi there,</p>
-		<p><strong>%s</strong> has invited you to collaborate in their workspace on Tulis CMS.</p>
+		<h2>Anda Telah Diundang untuk Bergabung dengan %s</h2>
+		<p>Halo,</p>
+		<p><strong>%s</strong> telah mengundang Anda untuk berkolaborasi di workspace mereka di Tulis CMS.</p>
 		
 		<div class="steps-box">
 			<h3>Cara Bergabung:</h3>
@@ -266,24 +266,24 @@ func GetInvitationEmail(workspaceName, inviterName, link, registrationLink strin
 		<p>Link undangan ini berlaku selama 7 hari. Jika tombol di atas tidak berfungsi, gunakan link berikut:</p>
 		<p style="word-break: break-all; font-size: 13px; color: #64748b;"><a href="%s">%s</a></p>
 	`, workspaceName, inviterName, link, registrationLink, link, link)
-	return getLayout("Workspace Invitation", content)
+	return getLayout("Undangan Workspace", content)
 }
 
 // GetPasswordResetEmail returns the template for password resets.
 func GetPasswordResetEmail(name, link string) string {
 	content := fmt.Sprintf(`
 		<div class="badge" style="background-color: #fef3c7; color: #92400e; border-color: #fde68a;">Keamanan Akun</div>
-		<h2>Reset Your Password</h2>
-		<p>Hi %s,</p>
-		<p>We received a request to reset your password for your Tulis CMS account. Click the button below to choose a new password.</p>
+		<h2>Atur Ulang Kata Sandi Anda</h2>
+		<p>Halo %s,</p>
+		<p>Kami menerima permintaan untuk mengatur ulang kata sandi akun Tulis CMS Anda. Klik tombol di bawah ini untuk memilih kata sandi baru.</p>
 		<div class="action-box">
-			<a href="%s" class="btn" target="_blank">Reset Password</a>
+			<a href="%s" class="btn" target="_blank">Atur Ulang Kata Sandi</a>
 		</div>
-		<p>If you did not request this, you can safely ignore this email. Your password will remain unchanged.</p>
-		<p>This link is valid for 1 hour. If the button doesn't work, copy and paste this URL:</p>
+		<p>Jika Anda tidak meminta ini, Anda dapat mengabaikan email ini dengan aman. Kata sandi Anda tidak akan berubah.</p>
+		<p>Tautan ini berlaku selama 1 jam. Jika tombol tidak berfungsi, salin dan tempel URL berikut:</p>
 		<p style="word-break: break-all; font-size: 13px; color: #64748b;"><a href="%s">%s</a></p>
 	`, name, link, link, link)
-	return getLayout("Reset Password", content)
+	return getLayout("Atur Ulang Kata Sandi", content)
 }
 
 // Get7DaysInactiveEmail returns the template for users inactive for 7 days.
@@ -291,14 +291,14 @@ func Get7DaysInactiveEmail(name string) string {
 	content := fmt.Sprintf(`
 		<div class="badge" style="background-color: #ecfdf5; color: #065f46; border-color: #a7f3d0;">Kami Merindukanmu</div>
 		<h2>Lama Tidak Berjumpa, %s!</h2>
-		<p>Hi %s,</p>
+		<p>Halo %s,</p>
 		<p>Sudah 7 hari sejak terakhir kali Anda login ke Tulis CMS. Kami merindukan kehadiran Anda di platform kami!</p>
 		<p>Ada banyak konten dan pembaruan baru yang menunggu Anda di workspace Anda. Mari login kembali untuk melanjutkan menulis atau melihat perkembangan terbaru.</p>
 		<div class="action-box">
 			<a href="https://app.tulis.org/login" class="btn" target="_blank">Masuk ke Dashboard</a>
 		</div>
 	`, name, name)
-	return getLayout("We miss you!", content)
+	return getLayout("Kami merindukanmu!", content)
 }
 
 // Get30DaysNoWriteEmail returns the template for users with no posts for 30 days.
@@ -306,21 +306,21 @@ func Get30DaysNoWriteEmail(name string) string {
 	content := fmt.Sprintf(`
 		<div class="badge" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe;">Ayo Menulis</div>
 		<h2>Yuk, Bagikan Ide Barumu!</h2>
-		<p>Hi %s,</p>
+		<p>Halo %s,</p>
 		<p>Sudah 30 hari Anda tidak menulis postingan baru di Tulis CMS. Keyboard Anda mungkin sudah mulai berdebu! 😉</p>
 		<p>Menulis secara konsisten adalah cara terbaik untuk berinteraksi dengan audiens Anda dan membagikan keahlian Anda. Kami memiliki editor Markdown & Rich Text yang sangat responsif dan siap membantu Anda menumpahkan ide-ide brilian Anda.</p>
 		<div class="action-box">
 			<a href="https://app.tulis.org/posts/new" class="btn" target="_blank">Mulai Menulis Post Baru</a>
 		</div>
 	`, name)
-	return getLayout("Share your new ideas!", content)
+	return getLayout("Bagikan ide barumu!", content)
 }
 
 // GetGeneralNotificationEmail returns a general notification template.
 func GetGeneralNotificationEmail(name, title, message string) string {
 	content := fmt.Sprintf(`
 		<h2>%s</h2>
-		<p>Hi %s,</p>
+		<p>Halo %s,</p>
 		<p>%s</p>
 	`, title, name, strings.ReplaceAll(message, "\n", "<br>"))
 	return getLayout(title, content)
