@@ -186,7 +186,11 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 	_ = s.repo.CreateRevision(ctx, revision)
 
 	// Fetch fresh post to return preloaded taxonomies
-	return s.repo.FindByID(ctx, post.ID)
+	createdPost, err := s.repo.FindByID(ctx, post.ID)
+	if err == nil && s.pluginSvc != nil {
+		_ = s.pluginSvc.TriggerHook(ctx, workspaceID, "after_create_post", createdPost)
+	}
+	return createdPost, err
 }
 
 func (s *postService) GetPostByID(ctx context.Context, id uuid.UUID) (*Post, error) {
@@ -339,7 +343,11 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 	}
 	_ = s.repo.CreateRevision(ctx, revision)
 
-	return s.repo.FindByID(ctx, post.ID)
+	updatedPost, err := s.repo.FindByID(ctx, post.ID)
+	if err == nil && s.pluginSvc != nil {
+		_ = s.pluginSvc.TriggerHook(ctx, post.WorkspaceID, "after_update_post", updatedPost)
+	}
+	return updatedPost, err
 }
 
 func (s *postService) DeletePost(ctx context.Context, id uuid.UUID) error {

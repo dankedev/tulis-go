@@ -39,16 +39,6 @@ type FieldSchema struct {
 // System Available Plugins Registry
 var AvailablePlugins = []PluginManifest{
 	{
-		ID:          "s3-storage",
-		Name:        "AWS S3 GCS Storage Uploads",
-		Description: "Directly offload all media uploads and assets from local filesystem to Cloud GCS or Amazon S3 buckets.",
-		Version:     "1.0.4",
-		SettingsSchema: map[string]FieldSchema{
-			"bucket": {Type: "text", Label: "S3 Bucket Name", Required: true, Default: ""},
-			"region": {Type: "text", Label: "AWS Region", Required: true, Default: "us-east-1"},
-		},
-	},
-	{
 		ID:          "slack-webhooks",
 		Name:        "Slack Notifications Hook",
 		Description: "Broadcast post publication updates and system revisions logs directly into your team channels.",

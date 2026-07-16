@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/storage"
 	"github.com/google/uuid"
 )
@@ -32,7 +33,7 @@ type mediaService struct {
 	storage storage.Storage
 }
 
-func NewMediaService(repo MediaRepository, storage storage.Storage) MediaService {
+func NewMediaService(repo MediaRepository, storage storage.Storage, pluginSvc ...plugin.Service) MediaService {
 	return &mediaService{repo: repo, storage: storage}
 }
 

@@ -110,7 +110,7 @@ func SetupApp() *fiber.App {
 			log.Println("Using local storage for media (R2 not configured)")
 		}
 
-		mediaSvc := media.NewMediaService(mediaRepo, mediaStorage)
+		mediaSvc := media.NewMediaService(mediaRepo, mediaStorage, pluginSvc)
 		mediaHandler := media.NewMediaHandler(mediaSvc)
 
 		importerSvc := importer.NewImporterService(config.DB, mediaSvc, postRepo, mediaRepo)

@@ -13,12 +13,15 @@ func getLayout(title, content string) string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>{{.Title}}</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background-color: #f8fafc;
-            color: #1e293b;
+            color: #334155;
             margin: 0;
             padding: 0;
             -webkit-font-smoothing: antialiased;
@@ -27,124 +30,191 @@ func getLayout(title, content string) string {
             max-width: 600px;
             margin: 40px auto;
             background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.03), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+            border: 1px solid #f1f5f9;
             overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            padding: 32px;
+            background-color: #ffffff;
+            padding: 36px 32px 16px 32px;
             text-align: center;
+            border-bottom: 1px solid #f1f5f9;
         }
-        .header h1 {
-            color: #ffffff;
-            margin: 0;
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: -0.025em;
+        .header img {
+            height: 72px;
+            max-height: 72px;
+            width: auto;
+            margin: 0 auto;
+            display: block;
         }
         .content {
-            padding: 40px;
-            line-height: 1.6;
+            padding: 48px 40px;
+            line-height: 1.75;
         }
         .content h2 {
-            font-size: 20px;
-            font-weight: 600;
+            font-size: 24px;
+            font-weight: 700;
             color: #0f172a;
             margin-top: 0;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            letter-spacing: -0.025em;
         }
         .content p {
             margin-top: 0;
-            margin-bottom: 20px;
-            color: #475569;
+            margin-bottom: 24px;
+            color: #1e293b;
+            font-size: 16px;
         }
         .action-box {
             text-align: center;
-            margin: 32px 0;
+            margin: 36px 0;
         }
         .btn {
             display: inline-block;
-            background-color: #6366f1;
+            background-color: #2563eb;
             color: #ffffff !important;
             text-decoration: none;
-            padding: 12px 28px;
-            border-radius: 8px;
+            padding: 14px 32px;
+            border-radius: 10px;
             font-weight: 600;
+            font-size: 16px;
             text-align: center;
-            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+            transition: all 0.2s ease;
         }
         .btn-secondary {
             display: inline-block;
-            background-color: #e2e8f0;
-            color: #334155 !important;
+            background-color: #f1f5f9;
+            color: #0f172a !important;
             text-decoration: none;
-            padding: 12px 28px;
-            border-radius: 8px;
+            padding: 14px 32px;
+            border-radius: 10px;
             font-weight: 600;
+            font-size: 16px;
             text-align: center;
-            margin-left: 10px;
+            margin-left: 12px;
+            transition: all 0.2s ease;
         }
         .footer {
             background-color: #f8fafc;
-            padding: 24px;
+            padding: 32px;
             text-align: center;
-            border-top: 1px solid #e2e8f0;
-            font-size: 12px;
+            border-top: 1px solid #f1f5f9;
+            font-size: 14px;
             color: #64748b;
+            line-height: 1.6;
+        }
+        .footer p {
+            margin: 0 0 10px 0;
+        }
+        .footer p:last-child {
+            margin: 0;
         }
         .footer a {
-            color: #6366f1;
+            color: #2563eb;
             text-decoration: none;
+            font-weight: 500;
         }
         .steps-box {
-            background-color: #f1f5f9;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 24px;
-            border: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 28px;
+            border: 1px solid #f1f5f9;
         }
         .steps-box h3 {
             margin-top: 0;
-            font-size: 14px;
-            font-weight: 600;
-            color: #334155;
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            margin-bottom: 12px;
         }
         .steps-list {
             padding-left: 20px;
             margin: 0;
-            color: #475569;
+            color: #1e293b;
+            font-size: 15px;
+            line-height: 1.7;
         }
         .steps-list li {
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         .badge {
             display: inline-block;
-            padding: 4px 10px;
+            padding: 6px 14px;
             border-radius: 9999px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 600;
-            background-color: #f0fdf4;
-            color: #166534;
-            margin-bottom: 12px;
-            border: 1px solid #bbf7d0;
+            background-color: #eff6ff;
+            color: #1e40af;
+            margin-bottom: 16px;
+            border: 1px solid #bfdbfe;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #090d16 !important;
+                color: #cbd5e1 !important;
+            }
+            .container {
+                background-color: #0f172a !important;
+                border-color: #1e293b !important;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
+            }
+            .header {
+                background-color: #0f172a !important;
+                border-bottom-color: #1e293b !important;
+            }
+            .header img {
+                filter: invert(1) brightness(2) !important;
+            }
+            .content h2 {
+                color: #f8fafc !important;
+            }
+            .content p {
+                color: #cbd5e1 !important;
+            }
+            .steps-box {
+                background-color: #090d16 !important;
+                border-color: #1e293b !important;
+            }
+            .steps-box h3 {
+                color: #94a3b8 !important;
+            }
+            .steps-list {
+                color: #cbd5e1 !important;
+            }
+            .footer {
+                background-color: #0f172a !important;
+                border-top-color: #1e293b !important;
+                color: #64748b !important;
+            }
+            .btn-secondary {
+                background-color: #1e293b !important;
+                color: #f8fafc !important;
+            }
+            .badge {
+                background-color: #1e293b !important;
+                border-color: #3b82f6 !important;
+                color: #60a5fa !important;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>{{.BrandName}}</h1>
+            <img src="https://s3.tulis.org/brand/tulis-logo.png" alt="Tulis CMS" />
         </div>
         <div class="content">
             {{.Content}}
         </div>
         <div class="footer">
             <p>Sent with ❤️ by {{.BrandName}} Team</p>
-            <p>If you have any questions, contact us at <a href="mailto:support@tulis.org">support@tulis.org</a></p>
+            <p>If you have any questions, contact us at <a href="mailto:halo@tulis.org">halo@tulis.org</a></p>
         </div>
     </div>
 </body>
