@@ -41,6 +41,9 @@ type Config struct {
 	GitLabClientID      string
 	GitLabClientSecret  string
 	GitLabRedirectURL   string
+	DBMaxIdleConns      int
+	DBMaxOpenConns      int
+	DBConnMaxLifetimeMinutes int
 }
 
 var AppConfig *Config
@@ -82,6 +85,9 @@ func LoadConfig() {
 		GitLabClientID:      getEnv("GITLAB_CLIENT_ID", ""),
 		GitLabClientSecret:  getEnv("GITLAB_CLIENT_SECRET", ""),
 		GitLabRedirectURL:   getEnv("GITLAB_REDIRECT_URL", "http://localhost:8080/api/auth/gitlab/callback"),
+		DBMaxIdleConns:      getEnvInt("DB_MAX_IDLE_CONNS", 10),
+		DBMaxOpenConns:      getEnvInt("DB_MAX_OPEN_CONNS", 100),
+		DBConnMaxLifetimeMinutes: getEnvInt("DB_CONN_MAX_LIFETIME_MINS", 60),
 	}
 }
 
