@@ -84,7 +84,7 @@ func SetupApp() *fiber.App {
 
 		postRepo := post.NewPostRepository(config.DB)
 		postSvc := post.NewPostService(postRepo, pluginSvc)
-		postHandler := post.NewPostHandler(postSvc)
+		postHandler := post.NewPostHandler(postSvc, wsSvc)
 
 		mediaRepo := media.NewMediaRepository(config.DB)
 

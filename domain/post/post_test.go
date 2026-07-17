@@ -2,6 +2,7 @@ package post_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dankedev/tulis-go/domain/post"
+	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
@@ -21,24 +23,38 @@ func setupTestPostDB(t *testing.T) (*gorm.DB, post.PostService, *post.PostHandle
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	err = db.AutoMigrate(&post.Post{}, &post.PostType{}, &post.PostRevision{}, &post.Taxonomy{}, &post.PostTaxonomy{})
+	err = db.AutoMigrate(&post.Post{}, &post.PostType{}, &post.PostRevision{}, &post.Taxonomy{}, &post.PostTaxonomy{}, &workspace.WorkspaceMember{})
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	wsRepo := workspace.NewWorkspaceRepository(db)
+	wsSvc := workspace.NewWorkspaceService(wsRepo)
+
 	repo := post.NewPostRepository(db)
 	svc := post.NewPostService(repo, nil)
-	handler := post.NewPostHandler(svc)
+	handler := post.NewPostHandler(svc, wsSvc)
 
 	return db, svc, handler
 }
 
 func TestPostServiceAndHandler(t *testing.T) {
-	_, svc, handler := setupTestPostDB(t)
+	db, svc, handler := setupTestPostDB(t)
 
 	app := fiber.New()
 	userID := uuid.New()
 	wsID := uuid.New()
+
+	// Insert test member so role validation checks pass
+	err := db.Create(&workspace.WorkspaceMember{
+		ID:          uuid.New(),
+		WorkspaceID: wsID,
+		UserID:      userID,
+		Role:        "superadmin",
+	}).Error
+	if err != nil {
+		t.Fatalf("Failed to create test member: %v", err)
+	}
 
 	// Inject auth and tenant contexts manually
 	app.Use(func(c *fiber.Ctx) error {
@@ -552,6 +568,144 @@ func TestPostServiceAndHandler(t *testing.T) {
 		resp, _ = app.Test(req, -1)
 		if resp.StatusCode != http.StatusNotFound {
 			t.Errorf("Expected 404 fetching draft post via public endpoint, got %d", resp.StatusCode)
+		}
+	})
+}
+
+func TestPostPermissions(t *testing.T) {
+	db, svc, handler := setupTestPostDB(t)
+
+	app := fiber.New()
+
+	// Dynamic auth context
+	var currentUserID uuid.UUID
+	wsID := uuid.New()
+
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("user_id", currentUserID.String())
+		c.Locals("workspace_id", wsID.String())
+		return c.Next()
+	})
+
+	app.Post("/api/posts", handler.Create)
+	app.Put("/api/posts/:id", handler.Update)
+	app.Delete("/api/posts/:id", handler.Delete)
+
+	// Create test users in db
+	subscriberID := uuid.New()
+	author1ID := uuid.New()
+	author2ID := uuid.New()
+	editorID := uuid.New()
+
+	// Insert workspace members
+	members := []workspace.WorkspaceMember{
+		{ID: uuid.New(), WorkspaceID: wsID, UserID: subscriberID, Role: "subscriber"},
+		{ID: uuid.New(), WorkspaceID: wsID, UserID: author1ID, Role: "author"},
+		{ID: uuid.New(), WorkspaceID: wsID, UserID: author2ID, Role: "author"},
+		{ID: uuid.New(), WorkspaceID: wsID, UserID: editorID, Role: "editor"},
+	}
+	for _, m := range members {
+		if err := db.Create(&m).Error; err != nil {
+			t.Fatalf("Failed to create member: %v", err)
+		}
+	}
+
+	// Create a post owned by author1 directly via service so we have a target post
+	author1Post, err := svc.CreatePost(context.Background(), post.CreatePostReq{
+		Title:   "Author 1 Post",
+		Content: "Author 1 content",
+		Status:  "draft",
+	}, author1ID, wsID)
+	if err != nil {
+		t.Fatalf("Failed to create post: %v", err)
+	}
+
+	t.Run("Subscriber cannot create post", func(t *testing.T) {
+		currentUserID = subscriberID
+		reqBody := post.CreatePostReq{Title: "Sub Post", Content: "Sub content"}
+		jsonBytes, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected 403 Forbidden, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Subscriber cannot update post", func(t *testing.T) {
+		currentUserID = subscriberID
+		newTitle := "Updated Title"
+		updateReq := post.UpdatePostReq{Title: &newTitle}
+		jsonBytes, _ := json.Marshal(updateReq)
+		req := httptest.NewRequest("PUT", "/api/posts/"+author1Post.ID.String(), bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected 403 Forbidden, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Author can update own post", func(t *testing.T) {
+		currentUserID = author1ID
+		newTitle := "Updated Title By Author 1"
+		updateReq := post.UpdatePostReq{Title: &newTitle}
+		jsonBytes, _ := json.Marshal(updateReq)
+		req := httptest.NewRequest("PUT", "/api/posts/"+author1Post.ID.String(), bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Author cannot update other author's post", func(t *testing.T) {
+		currentUserID = author2ID
+		newTitle := "Hack Title"
+		updateReq := post.UpdatePostReq{Title: &newTitle}
+		jsonBytes, _ := json.Marshal(updateReq)
+		req := httptest.NewRequest("PUT", "/api/posts/"+author1Post.ID.String(), bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected 403 Forbidden, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Editor can update any post", func(t *testing.T) {
+		currentUserID = editorID
+		newTitle := "Updated Title By Editor"
+		updateReq := post.UpdatePostReq{Title: &newTitle}
+		jsonBytes, _ := json.Marshal(updateReq)
+		req := httptest.NewRequest("PUT", "/api/posts/"+author1Post.ID.String(), bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Author cannot delete other author's post", func(t *testing.T) {
+		currentUserID = author2ID
+		req := httptest.NewRequest("DELETE", "/api/posts/"+author1Post.ID.String(), nil)
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected 403 Forbidden, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Author can delete own post", func(t *testing.T) {
+		// First recreate post to delete
+		author1PostToDel, _ := svc.CreatePost(context.Background(), post.CreatePostReq{
+			Title:   "Author 1 Post To Delete",
+			Content: "content",
+			Status:  "draft",
+		}, author1ID, wsID)
+
+		currentUserID = author1ID
+		req := httptest.NewRequest("DELETE", "/api/posts/"+author1PostToDel.ID.String(), nil)
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
 		}
 	})
 }

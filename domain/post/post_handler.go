@@ -16,17 +16,19 @@ package post
 import (
 	"strconv"
 
+	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
 type PostHandler struct {
-	svc PostService
+	svc   PostService
+	wsSvc workspace.WorkspaceService
 }
 
-func NewPostHandler(svc PostService) *PostHandler {
-	return &PostHandler{svc: svc}
+func NewPostHandler(svc PostService, wsSvc workspace.WorkspaceService) *PostHandler {
+	return &PostHandler{svc: svc, wsSvc: wsSvc}
 }
 
 // Create godoc
@@ -60,6 +62,15 @@ func (h *PostHandler) Create(c *fiber.Ctx) error {
 	workspaceID, err := uuid.Parse(wsIDStr.(string))
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// CHECK WORKSPACE ROLE
+	member, err := h.wsSvc.GetMember(c.Context(), workspaceID, authorID)
+	if err != nil {
+		return response.Error(c, "FORBIDDEN", "Access denied: you are not a member of this workspace", nil)
+	}
+	if member.Role == "subscriber" {
+		return response.Error(c, "FORBIDDEN", "Access denied: subscriber cannot create posts", nil)
 	}
 
 	var req CreatePostReq
@@ -134,6 +145,39 @@ func (h *PostHandler) Update(c *fiber.Ctx) error {
 		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
 	}
 
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// Fetch post first to check ownership / workspace alignment
+	existingPost, err := h.svc.GetPostByID(c.Context(), id)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", "Post not found", nil)
+	}
+
+	if existingPost.WorkspaceID != workspaceID {
+		return response.Error(c, "FORBIDDEN", "Post does not belong to this workspace", nil)
+	}
+
+	// CHECK WORKSPACE ROLE
+	member, err := h.wsSvc.GetMember(c.Context(), workspaceID, authorID)
+	if err != nil {
+		return response.Error(c, "FORBIDDEN", "Access denied: you are not a member of this workspace", nil)
+	}
+
+	if member.Role == "subscriber" {
+		return response.Error(c, "FORBIDDEN", "Access denied: subscriber cannot edit posts", nil)
+	}
+
+	if member.Role == "author" && existingPost.AuthorID != authorID {
+		return response.Error(c, "FORBIDDEN", "Access denied: author can only edit their own posts", nil)
+	}
+
 	var req UpdatePostReq
 	if err := c.BodyParser(&req); err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
@@ -165,6 +209,48 @@ func (h *PostHandler) Delete(c *fiber.Ctx) error {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid post ID", nil)
+	}
+
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// Fetch post first to check ownership / workspace alignment
+	existingPost, err := h.svc.GetPostByID(c.Context(), id)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", "Post not found", nil)
+	}
+
+	if existingPost.WorkspaceID != workspaceID {
+		return response.Error(c, "FORBIDDEN", "Post does not belong to this workspace", nil)
+	}
+
+	// CHECK WORKSPACE ROLE
+	member, err := h.wsSvc.GetMember(c.Context(), workspaceID, authorID)
+	if err != nil {
+		return response.Error(c, "FORBIDDEN", "Access denied: you are not a member of this workspace", nil)
+	}
+
+	if member.Role == "subscriber" {
+		return response.Error(c, "FORBIDDEN", "Access denied: subscriber cannot delete posts", nil)
+	}
+
+	if member.Role == "author" && existingPost.AuthorID != authorID {
+		return response.Error(c, "FORBIDDEN", "Access denied: author can only delete their own posts", nil)
 	}
 
 	if err := h.svc.DeletePost(c.Context(), id); err != nil {
@@ -249,6 +335,15 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]interface{}
 // @Router /api/post-types [post]
 func (h *PostHandler) RegisterPostType(c *fiber.Ctx) error {
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
 	wsIDStr := c.Locals("workspace_id")
 	if wsIDStr == nil {
 		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
@@ -256,6 +351,15 @@ func (h *PostHandler) RegisterPostType(c *fiber.Ctx) error {
 	workspaceID, err := uuid.Parse(wsIDStr.(string))
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// CHECK WORKSPACE ROLE (Only owner/superadmin or admin can register custom post types)
+	member, err := h.wsSvc.GetMember(c.Context(), workspaceID, authorID)
+	if err != nil {
+		return response.Error(c, "FORBIDDEN", "Access denied: you are not a member of this workspace", nil)
+	}
+	if member.Role != "superadmin" && member.Role != "admin" {
+		return response.Error(c, "FORBIDDEN", "Access denied: only workspace owner/admin can register custom post types", nil)
 	}
 
 	var req CreatePostTypeReq
@@ -347,6 +451,33 @@ func (h *PostHandler) ListPostTypes(c *fiber.Ctx) error {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/post-types/{id} [delete]
 func (h *PostHandler) DeletePostType(c *fiber.Ctx) error {
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	// CHECK WORKSPACE ROLE (Only owner/superadmin or admin can delete custom post types)
+	member, err := h.wsSvc.GetMember(c.Context(), workspaceID, authorID)
+	if err != nil {
+		return response.Error(c, "FORBIDDEN", "Access denied: you are not a member of this workspace", nil)
+	}
+	if member.Role != "superadmin" && member.Role != "admin" {
+		return response.Error(c, "FORBIDDEN", "Access denied: only workspace owner/admin can delete custom post types", nil)
+	}
+
 	idStr := c.Params("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -410,6 +541,45 @@ func (h *PostHandler) RestoreRevision(c *fiber.Ctx) error {
 	authorID, err := uuid.Parse(authUserIDStr.(string))
 	if err != nil {
 		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid post ID", nil)
+	}
+
+	// Fetch post first to check ownership / workspace alignment
+	existingPost, err := h.svc.GetPostByID(c.Context(), id)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", "Post not found", nil)
+	}
+
+	if existingPost.WorkspaceID != workspaceID {
+		return response.Error(c, "FORBIDDEN", "Post does not belong to this workspace", nil)
+	}
+
+	// CHECK WORKSPACE ROLE
+	member, err := h.wsSvc.GetMember(c.Context(), workspaceID, authorID)
+	if err != nil {
+		return response.Error(c, "FORBIDDEN", "Access denied: you are not a member of this workspace", nil)
+	}
+
+	if member.Role == "subscriber" {
+		return response.Error(c, "FORBIDDEN", "Access denied: subscriber cannot restore revisions", nil)
+	}
+
+	if member.Role == "author" && existingPost.AuthorID != authorID {
+		return response.Error(c, "FORBIDDEN", "Access denied: author can only restore revisions for their own posts", nil)
 	}
 
 	revisionIDStr := c.Params("revisionId")
