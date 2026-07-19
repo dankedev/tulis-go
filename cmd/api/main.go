@@ -208,12 +208,10 @@ func SetupApp() *fiber.App {
 		routes.RegisterWorkspaceMemberRoutes(tenantGroup, wsHandler)
 		
 		// Create a restricted group for content that requires at least 'author' role (blocks 'subscriber')
-		contentGroup := tenantGroup.Group("")
-		contentGroup.Use(middleware.RequireRole(wsSvc, "author"))
+		contentGroup := middleware.WithMiddleware(tenantGroup, middleware.RequireRole(wsSvc, "author"))
 
 		// Editor+ group for sensitive management features (webhooks, api keys, taxonomies, plugins, moderation)
-		editorGroup := tenantGroup.Group("")
-		editorGroup.Use(middleware.RequireRole(wsSvc, "editor"))
+		editorGroup := middleware.WithMiddleware(tenantGroup, middleware.RequireRole(wsSvc, "editor"))
 
 		routes.RegisterPostRoutes(v1PublicApi, contentGroup, postHandler, publicPostHandler)
 		routes.RegisterTaxonomyRoutes(v1PublicApi, editorGroup, postHandler, publicPostHandler)

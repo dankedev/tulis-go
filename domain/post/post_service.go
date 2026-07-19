@@ -117,14 +117,15 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 	}
 
 	var publishedAt *time.Time
-	if status == "published" {
+	switch status {
+	case "published":
 		if req.PublishedAt != nil {
 			publishedAt = req.PublishedAt
 		} else {
 			now := time.Now()
 			publishedAt = &now
 		}
-	} else if status == "scheduled" {
+	case "scheduled":
 		if req.PublishedAt == nil {
 			return nil, errors.New("published_at is required for scheduled status")
 		}
@@ -374,8 +375,12 @@ func (s *postService) DeletePost(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *postService) ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, page, perPage int) ([]Post, int64, error) {
-	if page < 1 { page = 1 }
-	if perPage < 1 { perPage = 10 }
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 10
+	}
 	offset := (page - 1) * perPage
 	return s.repo.List(ctx, workspaceID, postType, status, search, authorID, perPage, offset)
 }
