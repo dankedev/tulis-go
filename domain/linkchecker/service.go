@@ -64,7 +64,7 @@ func (s *service) CheckWorkspace(ctx context.Context, workspaceID uuid.UUID) (in
 	totalBroken := 0
 
 	for {
-		posts, _, err := s.postRepo.List(ctx, workspaceID, "", "published", "", batch, offset)
+		posts, _, err := s.postRepo.List(ctx, workspaceID, "", "published", "", nil, batch, offset)
 		if err != nil {
 			return checked, totalBroken, err
 		}

@@ -13,7 +13,7 @@ type PostRepository interface {
 	FindBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*Post, error)
 	Update(ctx context.Context, post *Post) error
 	Delete(ctx context.Context, id uuid.UUID) error
-	List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, limit, offset int) ([]Post, int64, error)
+	List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, limit, offset int) ([]Post, int64, error)
 	ListPublic(ctx context.Context, workspaceID uuid.UUID, postType string, taxonomySlug string, sortBy string, limit, offset int) ([]Post, int64, error)
 
 	// PostType operations
@@ -77,7 +77,7 @@ func (r *postRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&Post{}, "id = ?", id).Error
 }
 
-func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, limit, offset int) ([]Post, int64, error) {
+func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, limit, offset int) ([]Post, int64, error) {
 	var posts []Post
 	var total int64
 
@@ -91,6 +91,9 @@ func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, postTy
 	}
 	if search != "" {
 		query = query.Where("title LIKE ?", "%"+search+"%")
+	}
+	if authorID != nil {
+		query = query.Where("author_id = ?", *authorID)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

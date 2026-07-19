@@ -306,6 +306,16 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
 	}
 
+	// Get user role — authors only see their own posts
+	var authorID *uuid.UUID
+	if userIDStr := c.Locals("user_id"); userIDStr != nil {
+		uid, _ := uuid.Parse(userIDStr.(string))
+		member, err := h.wsSvc.GetMember(c.Context(), workspaceID, uid)
+		if err == nil && member.Role == "author" {
+			authorID = &uid
+		}
+	}
+
 	postType := c.Query("type", "")
 	status := c.Query("status", "")
 	search := c.Query("search", "")
@@ -313,7 +323,7 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "10"))
 
-	posts, total, err := h.svc.ListPosts(c.Context(), workspaceID, postType, status, search, page, perPage)
+	posts, total, err := h.svc.ListPosts(c.Context(), workspaceID, postType, status, search, authorID, page, perPage)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}

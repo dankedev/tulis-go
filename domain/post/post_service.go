@@ -28,7 +28,7 @@ type PostService interface {
 	GetPostBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*Post, error)
 	UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePostReq, authorID uuid.UUID) (*Post, error)
 	DeletePost(ctx context.Context, id uuid.UUID) error
-	ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, page, perPage int) ([]Post, int64, error)
+	ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, page, perPage int) ([]Post, int64, error)
 
 	// Custom Post Type (CPT) registrations
 	RegisterPostType(ctx context.Context, workspaceID uuid.UUID, name, slug, description string, fields []CustomFieldSchema) (*PostType, error)
@@ -373,16 +373,11 @@ func (s *postService) DeletePost(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *postService) ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, page, perPage int) ([]Post, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if perPage < 1 {
-		perPage = 10
-	}
-
+func (s *postService) ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, page, perPage int) ([]Post, int64, error) {
+	if page < 1 { page = 1 }
+	if perPage < 1 { perPage = 10 }
 	offset := (page - 1) * perPage
-	return s.repo.List(ctx, workspaceID, postType, status, search, perPage, offset)
+	return s.repo.List(ctx, workspaceID, postType, status, search, authorID, perPage, offset)
 }
 
 // CPT operations
