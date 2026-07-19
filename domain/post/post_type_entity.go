@@ -24,5 +24,9 @@ type PostType struct {
 	Name         string              `gorm:"type:varchar(255);not null" json:"name"` // e.g. "Portfolio"
 	Slug         string              `gorm:"type:varchar(255);not null;index:idx_cpt_ws" json:"slug"` // e.g. "portfolio"
 	Description  string              `gorm:"type:text" json:"description"`
+	Icon         string              `gorm:"type:varchar(64);default:'file-text'" json:"icon"`
+	MenuOrder    int                 `gorm:"type:integer;default:100" json:"menu_order"`
+	IsActive     bool                `gorm:"type:boolean;default:true" json:"is_active"`
+	IsBuiltIn    bool                `gorm:"-" json:"is_builtin"`
 	FieldsConfig []CustomFieldSchema `gorm:"serializer:json" json:"fields_config"`
 }

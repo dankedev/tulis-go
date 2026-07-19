@@ -393,7 +393,7 @@ func (h *PostHandler) RegisterPostType(c *fiber.Ctx) error {
 		return response.Error(c, "VALIDATION_ERROR", "Post type name is required", nil)
 	}
 
-	cpt, err := h.svc.RegisterPostType(c.Context(), workspaceID, req.Name, req.Slug, req.Description, req.Fields)
+	cpt, err := h.svc.RegisterPostType(c.Context(), workspaceID, req.Name, req.Slug, req.Description, req.Icon, req.MenuOrder, req.IsActive, req.Fields)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}

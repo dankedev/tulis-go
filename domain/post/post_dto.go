@@ -46,6 +46,9 @@ type CreatePostTypeReq struct {
 	Name        string              `json:"name"`
 	Slug        string              `json:"slug"`
 	Description string              `json:"description"`
+	Icon        string              `json:"icon"`
+	MenuOrder   int                 `json:"menu_order"`
+	IsActive    *bool               `json:"is_active"`
 	Fields      []CustomFieldSchema `json:"fields"`
 }
 

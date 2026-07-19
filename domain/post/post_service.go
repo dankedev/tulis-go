@@ -13,14 +13,52 @@ import (
 )
 
 var (
-	ErrPostNotFound     = errors.New("post not found")
-	ErrPostTypeNotFound = errors.New("custom post type not found")
-	ErrPostTypeExists   = errors.New("custom post type slug already exists in this workspace")
-	ErrInvalidStatus    = errors.New("invalid status value")
-	ErrRevisionNotFound = errors.New("revision not found")
-	ErrTaxonomyNotFound = errors.New("taxonomy not found")
-	ErrTaxonomyExists   = errors.New("taxonomy slug already exists in this workspace for this type")
+	ErrPostNotFound      = errors.New("post not found")
+	ErrPostTypeNotFound  = errors.New("custom post type not found")
+	ErrPostTypeExists    = errors.New("custom post type slug already exists in this workspace")
+	ErrInvalidPostType   = errors.New("invalid custom post type")
+	ErrReservedPostType  = errors.New("post type slug is reserved")
+	ErrInvalidStatus     = errors.New("invalid status value")
+	ErrRevisionNotFound  = errors.New("revision not found")
+	ErrTaxonomyNotFound  = errors.New("taxonomy not found")
+	ErrTaxonomyExists    = errors.New("taxonomy slug already exists in this workspace for this type")
 )
+
+var builtInPostTypes = []PostType{
+	{ID: uuid.Nil, Name: "Posts", Slug: "post", Description: "Built-in blog posts", Icon: "file-text", MenuOrder: 0, IsActive: true, IsBuiltIn: true},
+	{ID: uuid.Nil, Name: "Pages", Slug: "page", Description: "Built-in static pages", Icon: "file", MenuOrder: 1, IsActive: true, IsBuiltIn: true},
+}
+
+var reservedPostTypeSlugs = map[string]struct{}{
+	"post": {}, "posts": {}, "page": {}, "pages": {},
+	"media": {}, "comments": {}, "taxonomies": {}, "settings": {},
+	"admin": {}, "api": {}, "public": {}, "setup": {},
+}
+
+var allowedCustomFieldTypes = map[string]struct{}{
+	"text": {}, "textarea": {}, "number": {}, "boolean": {}, "date": {}, "datetime": {}, "url": {}, "email": {},
+}
+
+func validateCustomFieldSchema(fields []CustomFieldSchema) error {
+	seen := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		name := helpers.Slugify(field.Name)
+		if name == "" {
+			return errors.New("custom field name is required")
+		}
+		if _, exists := seen[name]; exists {
+			return fmt.Errorf("custom field '%s' is duplicated", name)
+		}
+		seen[name] = struct{}{}
+		if field.Label == "" {
+			return fmt.Errorf("custom field '%s' label is required", name)
+		}
+		if _, ok := allowedCustomFieldTypes[field.Type]; !ok {
+			return fmt.Errorf("custom field '%s' type is invalid", name)
+		}
+	}
+	return nil
+}
 
 type PostService interface {
 	CreatePost(ctx context.Context, req CreatePostReq, authorID, workspaceID uuid.UUID) (*Post, error)
@@ -31,7 +69,7 @@ type PostService interface {
 	ListPosts(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, page, perPage int) ([]Post, int64, error)
 
 	// Custom Post Type (CPT) registrations
-	RegisterPostType(ctx context.Context, workspaceID uuid.UUID, name, slug, description string, fields []CustomFieldSchema) (*PostType, error)
+	RegisterPostType(ctx context.Context, workspaceID uuid.UUID, name, slug, description, icon string, menuOrder int, isActive *bool, fields []CustomFieldSchema) (*PostType, error)
 	GetPostTypeByID(ctx context.Context, id uuid.UUID) (*PostType, error)
 	GetPostTypeBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*PostType, error)
 	ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error)
@@ -386,17 +424,40 @@ func (s *postService) ListPosts(ctx context.Context, workspaceID uuid.UUID, post
 }
 
 // CPT operations
-func (s *postService) RegisterPostType(ctx context.Context, workspaceID uuid.UUID, name, slug, description string, fields []CustomFieldSchema) (*PostType, error) {
+func (s *postService) RegisterPostType(ctx context.Context, workspaceID uuid.UUID, name, slug, description, icon string, menuOrder int, isActive *bool, fields []CustomFieldSchema) (*PostType, error) {
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("post type name is required")
 	}
 	if slug == "" {
 		slug = helpers.Slugify(name)
+	} else {
+		slug = helpers.Slugify(slug)
+	}
+	if slug == "" {
+		return nil, errors.New("post type slug is required")
+	}
+	if _, reserved := reservedPostTypeSlugs[slug]; reserved {
+		return nil, ErrReservedPostType
+	}
+	if err := validateCustomFieldSchema(fields); err != nil {
+		return nil, err
 	}
 
 	existing, _ := s.repo.FindPostTypeBySlug(ctx, workspaceID, slug)
 	if existing != nil {
 		return nil, ErrPostTypeExists
+	}
+
+	active := true
+	if isActive != nil {
+		active = *isActive
+	}
+	if icon == "" {
+		icon = "file-text"
+	}
+	if menuOrder <= 1 {
+		menuOrder = 100
 	}
 
 	cpt := &PostType{
@@ -405,6 +466,9 @@ func (s *postService) RegisterPostType(ctx context.Context, workspaceID uuid.UUI
 		Name:         name,
 		Slug:         slug,
 		Description:  description,
+		Icon:         icon,
+		MenuOrder:    menuOrder,
+		IsActive:     active,
 		FieldsConfig: fields,
 	}
 
@@ -432,7 +496,21 @@ func (s *postService) GetPostTypeBySlug(ctx context.Context, workspaceID uuid.UU
 }
 
 func (s *postService) ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error) {
-	return s.repo.ListPostTypes(ctx, workspaceID)
+	customTypes, err := s.repo.ListPostTypes(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]PostType, 0, len(builtInPostTypes)+len(customTypes))
+	items = append(items, builtInPostTypes...)
+	for _, item := range customTypes {
+		if !item.IsActive {
+			continue
+		}
+		item.IsBuiltIn = false
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 func (s *postService) DeletePostType(ctx context.Context, id uuid.UUID) error {
