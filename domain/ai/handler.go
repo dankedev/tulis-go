@@ -1,6 +1,9 @@
 package ai
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
 )
@@ -107,4 +110,50 @@ func (h *Handler) SuggestTaxonomies(c *fiber.Ctx) error {
 		"categories": cats,
 		"tags":       tags,
 	}, "Taxonomies suggested")
+}
+
+// GenerateSocialSnippets godoc
+// @Summary Generate social media snippets
+// @Description Uses AI to generate platform-specific social media post summaries
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]string true "JSON with title and content"
+// @Router /api/ai/generate-snippets [post]
+func (h *Handler) GenerateSocialSnippets(c *fiber.Ctx) error {
+	if h.provider == nil {
+		return response.Error(c, "SERVICE_UNAVAILABLE", "AI is not configured", nil)
+	}
+	var req struct {
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request", nil)
+	}
+
+	prompt := fmt.Sprintf(`Write social media snippets for this blog post in Indonesian.
+Title: %s
+Content preview: %s
+
+Return ONLY valid JSON: {"twitter":"...","linkedin":"...","facebook":"..."}
+- Twitter: max 280 characters, engaging
+- LinkedIn: professional tone, 2-3 sentences
+- Facebook: conversational, 2-3 sentences`, req.Title, truncate(req.Content, 500))
+
+	result, err := h.provider.Chat(c.Context(), prompt)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	result = extractJSON(result)
+	var snippets map[string]string
+	json.Unmarshal([]byte(result), &snippets)
+
+	return response.Success(c, snippets, "Snippets generated")
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n { return s }
+	return s[:n] + "..."
 }

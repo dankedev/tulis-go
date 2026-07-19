@@ -13,6 +13,7 @@ import (
 	"github.com/dankedev/tulis-go/domain/ai"
 	"github.com/dankedev/tulis-go/domain/analytics"
 	"github.com/dankedev/tulis-go/domain/apikey"
+	"github.com/dankedev/tulis-go/domain/collab"
 	"github.com/dankedev/tulis-go/domain/comment"
 	"github.com/dankedev/tulis-go/domain/importer"
 	"github.com/dankedev/tulis-go/domain/linkchecker"
@@ -150,6 +151,9 @@ func SetupApp() *fiber.App {
 		// Initialize Membership domain
 		membershipHandler := membership.NewHandler(config.DB)
 
+		// Initialize Collaboration domain
+		collabHandler := collab.NewHandler(config.DB)
+
 		// Initialize Public Consumption Handlers
 		publicPostHandler := post.NewPublicHandler(postSvc)
 		publicMediaHandler := media.NewPublicHandler(mediaSvc)
@@ -218,6 +222,7 @@ func SetupApp() *fiber.App {
 		routes.RegisterWebhookRoutes(contentGroup, webhookHandler)
 	routes.RegisterAnalyticsRoutes(v1PublicApi, contentGroup, analyticsHandler)
 	routes.RegisterMembershipRoutes(contentGroup, membershipHandler)
+	routes.RegisterCollabRoutes(contentGroup, collabHandler)
 
 		// Sitemap endpoint (public, per workspace)
 		v1PublicApi.Get("/workspaces/:id/sitemap", sitemapHandler.GetSitemap)
@@ -268,6 +273,7 @@ func main() {
 		&analytics.PageView{},
 		&membership.SubscriptionTier{},
 		&membership.UserSubscription{},
+		&collab.ContentLock{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
