@@ -34,7 +34,7 @@ type ImporterService interface {
 	ImportCSVBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, fileURL string, mapping map[string]string, defaultStatus, defaultPostType string)
 	InspectStrapi(ctx context.Context, urlStr, token, collectionType string) ([]string, error)
 	ImportStrapiBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, urlStr, token, collectionType string, mapping map[string]string, defaultStatus, defaultPostType string)
-	ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportLog, error)
+	ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string, opts ImportMarkdownOpts) (*ImportLog, error)
 }
 
 type importerService struct {
@@ -1664,7 +1664,12 @@ func (s *importerService) ImportStrapiBackground(ctx context.Context, workspaceI
 }
 
 // ImportMarkdown imports a zip of markdown files as posts with folder-based categories.
-func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, _ string) (*ImportLog, error) {
+type ImportMarkdownOpts struct {
+	PostType      string
+	SkipExisting  bool
+}
+
+func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, _ string, opts ImportMarkdownOpts) (*ImportLog, error) {
 	fileData, err := io.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read uploaded file: %w", err)
@@ -1728,60 +1733,102 @@ func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, autho
 		}
 
 		mdBody := extractMdBody(body)
+		dir := filepath.Dir(zf.Name)
 		baseName := strings.TrimSuffix(filepath.Base(zf.Name), ".md")
-		slug := helpers.Slugify(baseName)
+
+		// Slug = folder-prefixed to avoid cross-folder collisions
+		slugParts := []string{}
+		if dir != "." && dir != "" {
+			for _, part := range strings.Split(dir, "/") {
+				p := helpers.Slugify(part)
+				if p != "" {
+					slugParts = append(slugParts, p)
+				}
+			}
+		}
+		slugParts = append(slugParts, helpers.Slugify(baseName))
+		slug := strings.Join(slugParts, "-")
 		if slug == "" {
 			slug = helpers.Slugify(title)
 		}
 
+		// Skip duplicate slugs only when opted in
 		existingPost, _ := s.postRepo.FindBySlug(ctx, workspaceID, slug)
 		if existingPost != nil {
-			result.SkippedCount++
-			errorsList = append(errorsList, fmt.Sprintf("skipped %s: slug '%s' already exists", zf.Name, slug))
-			continue
+			if opts.SkipExisting {
+				result.SkippedCount++
+				errorsList = append(errorsList, fmt.Sprintf("skipped %s: slug '%s' already exists", zf.Name, slug))
+				continue
+			}
+			// Append random suffix to avoid collision
+			slug = slug + "-" + uuid.New().String()[:8]
 		}
 
-		// Folder → category
-		dir := filepath.Dir(zf.Name)
-		var categoryID *uuid.UUID
+		// Nested folder → hierarchy of categories
+		var categoryIDs []uuid.UUID
 		if dir != "." && dir != "" {
-			catSlug := helpers.Slugify(dir)
-			if existingID, ok := categoryCache[dir]; ok {
-				categoryID = &existingID
-			} else {
-				catName := strings.ReplaceAll(dir, "/", " / ")
-				catName = strings.ReplaceAll(catName, "-", " ")
-				catName = strings.ReplaceAll(catName, "_", " ")
-				// Capitalize first letter of each word
-				words := strings.Fields(catName)
-				for i, w := range words {
-					if len(w) > 0 {
-						words[i] = strings.ToUpper(w[:1]) + w[1:]
-					}
+			parts := strings.Split(dir, "/")
+			parentID := uuid.Nil
+			catPath := ""
+			for _, part := range parts {
+				if catPath != "" {
+					catPath += "/"
 				}
-				catName = strings.Join(words, " ")
+				catPath += part
+				catSlug := helpers.Slugify(part)
+				if catSlug == "" {
+					continue
+				}
 
-				existingTax, _ := s.postRepo.FindTaxonomyBySlug(ctx, workspaceID, catSlug, "category")
-				if existingTax != nil {
-					categoryCache[dir] = existingTax.ID
-					categoryID = &existingTax.ID
+				var catID uuid.UUID
+				if existingID, ok := categoryCache[catPath]; ok {
+					catID = existingID
 				} else {
-					category := &post.Taxonomy{
-						ID:          uuid.New(),
-						WorkspaceID: workspaceID,
-						Name:        catName,
-						Slug:        catSlug,
-						Type:        "category",
+					catName := strings.ReplaceAll(part, "-", " ")
+					catName = strings.ReplaceAll(catName, "_", " ")
+					if len(catName) > 0 {
+						words := strings.Fields(catName)
+						for i, w := range words {
+							if len(w) > 0 {
+								words[i] = strings.ToUpper(w[:1]) + w[1:]
+							}
+						}
+						catName = strings.Join(words, " ")
 					}
-					if err := s.postRepo.CreateTaxonomy(ctx, category); err != nil {
-						errorsList = append(errorsList, fmt.Sprintf("failed to create category '%s': %v", catName, err))
+
+					existingTax, _ := s.postRepo.FindTaxonomyBySlug(ctx, workspaceID, catSlug, "category")
+					if existingTax != nil {
+						catID = existingTax.ID
 					} else {
-						categoryCache[dir] = category.ID
-						categoryID = &category.ID
+						var parentPtr *uuid.UUID
+						if parentID != uuid.Nil {
+							parentPtr = &parentID
+						}
+						category := &post.Taxonomy{
+							ID:          uuid.New(),
+							WorkspaceID: workspaceID,
+							Name:        catName,
+							Slug:        catSlug,
+							Type:        "category",
+							ParentID:    parentPtr,
+						}
+						if err := s.postRepo.CreateTaxonomy(ctx, category); err != nil {
+							errorsList = append(errorsList, fmt.Sprintf("failed to create category '%s': %v", catName, err))
+							break
+						}
+						catID = category.ID
 						result.TaxCount++
 					}
+					categoryCache[catPath] = catID
 				}
+				categoryIDs = append(categoryIDs, catID)
+				parentID = catID
 			}
+		}
+
+		postType := opts.PostType
+		if postType == "" {
+			postType = "post"
 		}
 
 		now := time.Now()
@@ -1792,7 +1839,7 @@ func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, autho
 			Slug:        slug,
 			Content:     mdBody,
 			Status:      "draft",
-			PostType:    "post",
+			PostType:    postType,
 			AuthorID:    authorID,
 			CreatedAt:   now,
 			EditedAt:    &now,
@@ -1804,8 +1851,10 @@ func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, autho
 		}
 		result.PostsCount++
 
-		if categoryID != nil {
-			_ = s.postRepo.AssignTaxonomies(ctx, postRecord.ID, []uuid.UUID{*categoryID})
+		// Assign lowest-level category (most specific)
+		if len(categoryIDs) > 0 {
+			lowest := categoryIDs[len(categoryIDs)-1]
+			_ = s.postRepo.AssignTaxonomies(ctx, postRecord.ID, []uuid.UUID{lowest})
 		}
 	}
 

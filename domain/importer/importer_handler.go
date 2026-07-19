@@ -569,7 +569,18 @@ func (h *ImporterHandler) ImportMarkdown(c *fiber.Ctx) error {
 	}
 	defer f.Close()
 
-	importLog, err := h.svc.ImportMarkdown(c.Context(), workspaceID, authorID, f, fileHeader.Filename)
+	postType := c.FormValue("post_type")
+	if postType == "" {
+		postType = "post"
+	}
+	skipExisting := c.FormValue("skip_existing") == "true"
+
+	opts := ImportMarkdownOpts{
+		PostType:     postType,
+		SkipExisting: skipExisting,
+	}
+
+	importLog, err := h.svc.ImportMarkdown(c.Context(), workspaceID, authorID, f, fileHeader.Filename, opts)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
