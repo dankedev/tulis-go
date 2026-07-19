@@ -518,4 +518,63 @@ func (h *ImporterHandler) StartStrapiImport(c *fiber.Ctx) error {
 	return response.Success(c, log, "Strapi import started in the background")
 }
 
+// ImportMarkdown godoc
+// @Summary Import markdown files from a zip archive
+// @Description Upload a zip of .md files organized in folders. Each folder becomes a category, each .md file becomes a post.
+// @Tags Importer
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param file formData file true "Zip file containing markdown files"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/plugins/importer/markdown/upload [post]
+func (h *ImporterHandler) ImportMarkdown(c *fiber.Ctx) error {
+	authUserIDStr := c.Locals("user_id")
+	if authUserIDStr == nil {
+		return response.Error(c, "UNAUTHORIZED", "Not authenticated", nil)
+	}
+	authorID, err := uuid.Parse(authUserIDStr.(string))
+	if err != nil {
+		return response.Error(c, "UNAUTHORIZED", "Invalid user ID", nil)
+	}
+
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "File is required", nil)
+	}
+
+	if !strings.HasSuffix(strings.ToLower(fileHeader.Filename), ".zip") {
+		return response.Error(c, "BAD_REQUEST", "Only .zip files are accepted", nil)
+	}
+
+	if fileHeader.Size > 50*1024*1024 {
+		return response.Error(c, "BAD_REQUEST", "File size exceeds 50MB limit", nil)
+	}
+
+	f, err := fileHeader.Open()
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Failed to open uploaded file", nil)
+	}
+	defer f.Close()
+
+	importLog, err := h.svc.ImportMarkdown(c.Context(), workspaceID, authorID, f, fileHeader.Filename)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, importLog, "Markdown import completed")
+}
+
 

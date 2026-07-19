@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/csv"
@@ -33,6 +34,7 @@ type ImporterService interface {
 	ImportCSVBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, fileURL string, mapping map[string]string, defaultStatus, defaultPostType string)
 	InspectStrapi(ctx context.Context, urlStr, token, collectionType string) ([]string, error)
 	ImportStrapiBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, urlStr, token, collectionType string, mapping map[string]string, defaultStatus, defaultPostType string)
+	ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportLog, error)
 }
 
 type importerService struct {
@@ -1659,6 +1661,198 @@ func (s *importerService) ImportStrapiBackground(ctx context.Context, workspaceI
 	}
 
 	updateLogStatus("completed", result, errorsList)
+}
+
+// ImportMarkdown imports a zip of markdown files as posts with folder-based categories.
+func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, _ string) (*ImportLog, error) {
+	fileData, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read uploaded file: %w", err)
+	}
+
+	zipReader, err := zip.NewReader(bytes.NewReader(fileData), int64(len(fileData)))
+	if err != nil {
+		return nil, fmt.Errorf("invalid zip file: %w", err)
+	}
+
+	createdAt := time.Now()
+	logID := uuid.New()
+	log := &ImportLog{
+		ID:          logID,
+		WorkspaceID: workspaceID,
+		AuthorID:    authorID,
+		Filename:    "markdown-import.zip",
+		Status:      "running",
+		CreatedAt:   createdAt,
+	}
+	if err := s.db.WithContext(ctx).Create(log).Error; err != nil {
+		return nil, fmt.Errorf("failed to create import log: %w", err)
+	}
+
+	var result ImportResult
+	var errorsList []string
+	categoryCache := make(map[string]uuid.UUID)
+
+	for _, zf := range zipReader.File {
+		if zf.FileInfo().IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(strings.ToLower(zf.Name), ".md") {
+			continue
+		}
+
+		rc, err := zf.Open()
+		if err != nil {
+			errorsList = append(errorsList, fmt.Sprintf("failed to open %s: %v", zf.Name, err))
+			continue
+		}
+
+		content, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			errorsList = append(errorsList, fmt.Sprintf("failed to read %s: %v", zf.Name, err))
+			continue
+		}
+
+		body := strings.TrimSpace(string(content))
+		if body == "" {
+			result.SkippedCount++
+			continue
+		}
+
+		title := extractMdTitle(body)
+		if title == "" {
+			result.SkippedCount++
+			errorsList = append(errorsList, fmt.Sprintf("skipped %s: no title found", zf.Name))
+			continue
+		}
+
+		mdBody := extractMdBody(body)
+		baseName := strings.TrimSuffix(filepath.Base(zf.Name), ".md")
+		slug := helpers.Slugify(baseName)
+		if slug == "" {
+			slug = helpers.Slugify(title)
+		}
+
+		existingPost, _ := s.postRepo.FindBySlug(ctx, workspaceID, slug)
+		if existingPost != nil {
+			result.SkippedCount++
+			errorsList = append(errorsList, fmt.Sprintf("skipped %s: slug '%s' already exists", zf.Name, slug))
+			continue
+		}
+
+		// Folder → category
+		dir := filepath.Dir(zf.Name)
+		var categoryID *uuid.UUID
+		if dir != "." && dir != "" {
+			catSlug := helpers.Slugify(dir)
+			if existingID, ok := categoryCache[dir]; ok {
+				categoryID = &existingID
+			} else {
+				catName := strings.ReplaceAll(dir, "/", " / ")
+				catName = strings.ReplaceAll(catName, "-", " ")
+				catName = strings.ReplaceAll(catName, "_", " ")
+				// Capitalize first letter of each word
+				words := strings.Fields(catName)
+				for i, w := range words {
+					if len(w) > 0 {
+						words[i] = strings.ToUpper(w[:1]) + w[1:]
+					}
+				}
+				catName = strings.Join(words, " ")
+
+				existingTax, _ := s.postRepo.FindTaxonomyBySlug(ctx, workspaceID, catSlug, "category")
+				if existingTax != nil {
+					categoryCache[dir] = existingTax.ID
+					categoryID = &existingTax.ID
+				} else {
+					category := &post.Taxonomy{
+						ID:          uuid.New(),
+						WorkspaceID: workspaceID,
+						Name:        catName,
+						Slug:        catSlug,
+						Type:        "category",
+					}
+					if err := s.postRepo.CreateTaxonomy(ctx, category); err != nil {
+						errorsList = append(errorsList, fmt.Sprintf("failed to create category '%s': %v", catName, err))
+					} else {
+						categoryCache[dir] = category.ID
+						categoryID = &category.ID
+						result.TaxCount++
+					}
+				}
+			}
+		}
+
+		now := time.Now()
+		postRecord := &post.Post{
+			ID:          uuid.New(),
+			WorkspaceID: workspaceID,
+			Title:       title,
+			Slug:        slug,
+			Content:     mdBody,
+			Status:      "draft",
+			PostType:    "post",
+			AuthorID:    authorID,
+			CreatedAt:   now,
+			EditedAt:    &now,
+		}
+		if err := s.postRepo.Create(ctx, postRecord); err != nil {
+			errorsList = append(errorsList, fmt.Sprintf("failed to create post '%s': %v", title, err))
+			result.SkippedCount++
+			continue
+		}
+		result.PostsCount++
+
+		if categoryID != nil {
+			_ = s.postRepo.AssignTaxonomies(ctx, postRecord.ID, []uuid.UUID{*categoryID})
+		}
+	}
+
+	finishedAt := time.Now()
+	if len(errorsList) > 0 {
+		result.Errors = errorsList
+	}
+
+	s.db.WithContext(ctx).Model(log).Updates(map[string]interface{}{
+		"status":        "completed",
+		"posts_count":   result.PostsCount,
+		"tax_count":     result.TaxCount,
+		"skipped_count": result.SkippedCount,
+		"errors":        strings.Join(errorsList, "; "),
+		"finished_at":   finishedAt,
+	})
+
+	log.Status = "completed"
+	log.PostsCount = result.PostsCount
+	log.TaxCount = result.TaxCount
+	log.SkippedCount = result.SkippedCount
+	log.Errors = strings.Join(errorsList, "; ")
+	log.FinishedAt = &finishedAt
+
+	return log, nil
+}
+
+func extractMdTitle(md string) string {
+	lines := strings.SplitN(md, "\n", 2)
+	firstLine := strings.TrimSpace(lines[0])
+	trimmed := strings.TrimPrefix(firstLine, "# ")
+	if trimmed != firstLine {
+		return strings.TrimSpace(trimmed)
+	}
+	trimmed = strings.TrimPrefix(firstLine, "#")
+	if trimmed != firstLine {
+		return strings.TrimSpace(trimmed)
+	}
+	return ""
+}
+
+func extractMdBody(md string) string {
+	lines := strings.SplitN(md, "\n", 2)
+	if len(lines) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(lines[1])
 }
 
 

@@ -23,4 +23,5 @@ type ImportLog struct {
 	SkippedCount int            `json:"skipped_count"`
 	Errors       string         `gorm:"type:text" json:"errors"`
 	Summary      string         `gorm:"type:text" json:"summary"`
+	FinishedAt   *time.Time     `json:"finished_at"`
 }

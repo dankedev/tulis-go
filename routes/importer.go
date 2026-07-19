@@ -13,4 +13,5 @@ func RegisterImporterRoutes(tenantGroup fiber.Router, importerHandler *importer.
 	tenantGroup.Post("/plugins/importer/csv/import", importerHandler.StartCSVImport)
 	tenantGroup.Post("/plugins/importer/strapi/inspect", importerHandler.InspectStrapi)
 	tenantGroup.Post("/plugins/importer/strapi/import", importerHandler.StartStrapiImport)
+	tenantGroup.Post("/plugins/importer/markdown/upload", importerHandler.ImportMarkdown)
 }
