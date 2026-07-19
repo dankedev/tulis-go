@@ -160,8 +160,9 @@ func isValidExternalURL(u string) bool {
 	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
 		return false
 	}
-	// Skip local/relative and obviously non-resolvable schemes
-	if strings.Contains(u, "localhost") || strings.HasPrefix(u, "http://127.") || strings.HasPrefix(u, "http://0.") {
+	// Skip localhost by hostname (IP literals like 127.0.0.1 are still checked,
+	// since an unreachable local link is genuinely broken from the server's view).
+	if strings.Contains(u, "localhost") {
 		return false
 	}
 	return true

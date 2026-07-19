@@ -203,6 +203,7 @@ func SetupApp() *fiber.App {
 		routes.RegisterPluginRoutes(contentGroup, pluginHandler)
 		routes.RegisterImporterRoutes(contentGroup, importerHandler)
 		routes.RegisterCommentRoutes(v1PublicApi, contentGroup, commentHandler)
+		routes.RegisterLinkCheckerRoutes(tenantGroup, linkCheckerHandler)
 		routes.RegisterApiKeyRoutes(contentGroup, apiKeyHandler)
 		routes.RegisterWebhookRoutes(contentGroup, webhookHandler)
 
@@ -242,6 +243,7 @@ func main() {
 		&apikey.ApiKey{},
 		&webhook.Webhook{},
 		&webhook.DeliveryLog{},
+		&linkchecker.BrokenLink{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
@@ -250,6 +252,13 @@ func main() {
 
 	// Start background inactivity email notifications scheduler
 	user.StartNotificationScheduler(config.DB)
+
+	// Start background broken-link checker scheduler (feat-045)
+	linkchecker.StartLinkCheckerScheduler(
+		config.DB,
+		time.Duration(config.AppConfig.LinkCheckIntervalHours)*time.Hour,
+		config.AppConfig.BrokenLinkThreshold,
+	)
 
 	// 4. Initialize Fiber App
 	app := SetupApp()
