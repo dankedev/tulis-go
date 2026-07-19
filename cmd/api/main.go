@@ -216,7 +216,7 @@ func SetupApp() *fiber.App {
 		routes.RegisterPostRoutes(v1PublicApi, contentGroup, postHandler, publicPostHandler)
 		routes.RegisterTaxonomyRoutes(v1PublicApi, editorGroup, postHandler, publicPostHandler)
 		routes.RegisterMediaRoutes(v1PublicApi, contentGroup, editorGroup, mediaHandler, publicMediaHandler)
-		routes.RegisterPluginRoutes(editorGroup, pluginHandler)
+		routes.RegisterPluginRoutes(contentGroup, editorGroup, pluginHandler)
 		routes.RegisterImporterRoutes(contentGroup, importerHandler)
 		routes.RegisterCommentRoutes(v1PublicApi, contentGroup, editorGroup, commentHandler)
 		routes.RegisterLinkCheckerRoutes(tenantGroup, linkCheckerHandler)

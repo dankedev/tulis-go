@@ -5,9 +5,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func RegisterPluginRoutes(tenantGroup fiber.Router, pluginHandler *plugin.Handler) {
-	// Plugin Management
-	tenantGroup.Get("/plugins", pluginHandler.List)
-	tenantGroup.Post("/plugins/:id/toggle", pluginHandler.Toggle)
-	tenantGroup.Put("/plugins/:id/settings", pluginHandler.SaveSettings)
+func RegisterPluginRoutes(contentGroup fiber.Router, editorGroup fiber.Router, pluginHandler *plugin.Handler) {
+	// Authors can view plugins
+	contentGroup.Get("/plugins", pluginHandler.List)
+	// Only editors can manage plugins
+	editorGroup.Post("/plugins/:id/toggle", pluginHandler.Toggle)
+	editorGroup.Put("/plugins/:id/settings", pluginHandler.SaveSettings)
 }

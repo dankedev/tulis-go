@@ -306,15 +306,7 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
 	}
 
-	// Get user role — authors only see their own posts
 	var authorID *uuid.UUID
-	if userIDStr := c.Locals("user_id"); userIDStr != nil {
-		uid, _ := uuid.Parse(userIDStr.(string))
-		member, err := h.wsSvc.GetMember(c.Context(), workspaceID, uid)
-		if err == nil && member.Role == "author" {
-			authorID = &uid
-		}
-	}
 
 	postType := c.Query("type", "")
 	status := c.Query("status", "")
