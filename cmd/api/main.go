@@ -11,6 +11,7 @@ import (
 
 	"github.com/dankedev/tulis-go/config"
 	"github.com/dankedev/tulis-go/domain/ai"
+	"github.com/dankedev/tulis-go/domain/analytics"
 	"github.com/dankedev/tulis-go/domain/apikey"
 	"github.com/dankedev/tulis-go/domain/comment"
 	"github.com/dankedev/tulis-go/domain/importer"
@@ -141,6 +142,10 @@ func SetupApp() *fiber.App {
 		apiKeySvc := apikey.NewService(apiKeyRepo)
 		apiKeyHandler := apikey.NewHandler(apiKeySvc)
 
+		// Initialize Analytics domain
+		analyticsRepo := analytics.NewRepository(config.DB)
+		analyticsHandler := analytics.NewHandler(analyticsRepo)
+
 		// Initialize Public Consumption Handlers
 		publicPostHandler := post.NewPublicHandler(postSvc)
 		publicMediaHandler := media.NewPublicHandler(mediaSvc)
@@ -207,6 +212,7 @@ func SetupApp() *fiber.App {
 		routes.RegisterLinkCheckerRoutes(tenantGroup, linkCheckerHandler)
 		routes.RegisterApiKeyRoutes(contentGroup, apiKeyHandler)
 		routes.RegisterWebhookRoutes(contentGroup, webhookHandler)
+	routes.RegisterAnalyticsRoutes(v1PublicApi, contentGroup, analyticsHandler)
 
 		// Sitemap endpoint (public, per workspace)
 		v1PublicApi.Get("/workspaces/:id/sitemap", sitemapHandler.GetSitemap)
@@ -254,7 +260,7 @@ func main() {
 		&apikey.ApiKey{},
 		&webhook.Webhook{},
 		&webhook.DeliveryLog{},
-		&linkchecker.BrokenLink{},
+		&analytics.PageView{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
