@@ -239,3 +239,42 @@ func (h *MediaHandler) Update(c *fiber.Ctx) error {
 
 	return response.Success(c, m, "Media updated successfully")
 }
+
+// UploadViaURL godoc
+// @Summary Upload media from a remote URL
+// @Description Downloads a file from the given URL and stores it in the media library. Used by MCP server and API integrations.
+// @Tags Media
+// @Accept json
+// @Produce json
+// @Param body body map[string]string true "JSON with file_url, alt_text, caption"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/media/upload-via-url [post]
+func (h *MediaHandler) UploadViaURL(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	var req struct {
+		FileURL string `json:"file_url"`
+		AltText string `json:"alt_text"`
+		Caption string `json:"caption"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+	if req.FileURL == "" {
+		return response.Error(c, "BAD_REQUEST", "file_url is required", nil)
+	}
+
+	m, err := h.svc.UploadFromURL(c.Context(), workspaceID, req.FileURL, req.AltText, req.Caption)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, m, "Media uploaded from URL")
+}

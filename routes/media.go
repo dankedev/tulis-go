@@ -15,4 +15,7 @@ func RegisterMediaRoutes(publicApi fiber.Router, tenantGroup fiber.Router, media
 	tenantGroup.Get("/media/:id", mediaHandler.GetByID)
 	tenantGroup.Put("/media/:id", mediaHandler.Update)
 	tenantGroup.Delete("/media/:id", mediaHandler.Delete)
+
+	// Upload via URL (for API key / MCP access)
+	tenantGroup.Post("/media/upload-via-url", mediaHandler.UploadViaURL)
 }

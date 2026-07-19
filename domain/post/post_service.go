@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dankedev/tulis-go/domain/plugin"
@@ -153,6 +154,10 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		OgpImage:     req.OgpImage,
 	}
 
+	if req.Content != "" {
+		post.ReadingTime = calculateReadingTime(req.Content)
+	}
+
 	if s.pluginSvc != nil {
 		_ = s.pluginSvc.TriggerHook(ctx, workspaceID, "before_create_post", post)
 	}
@@ -298,6 +303,12 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 	if req.FocusKeyword != nil {
 		post.FocusKeyword = *req.FocusKeyword
 	}
+
+	// Recalculate reading time if content changed
+	if req.Content != nil {
+		post.ReadingTime = calculateReadingTime(post.Content)
+	}
+
 	if req.OgpTitle != nil {
 		post.OgpTitle = *req.OgpTitle
 	}
@@ -596,4 +607,18 @@ func (s *postService) GetPublicPostBySlugOrID(ctx context.Context, workspaceID u
 	}
 
 	return post, nil
+}
+
+// calculateReadingTime estimates reading time based on word count (200 WPM average).
+// Returns at least 1 minute for any content.
+func calculateReadingTime(content string) int {
+	words := len(strings.Fields(content))
+	minutes := words / 200
+	if words%200 > 0 {
+		minutes++
+	}
+	if minutes < 1 {
+		minutes = 1
+	}
+	return minutes
 }

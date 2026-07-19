@@ -10,12 +10,15 @@ import (
 	"time"
 
 	"github.com/dankedev/tulis-go/config"
+	"github.com/dankedev/tulis-go/domain/apikey"
+	"github.com/dankedev/tulis-go/domain/comment"
 	"github.com/dankedev/tulis-go/domain/importer"
 	"github.com/dankedev/tulis-go/domain/media"
 	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/domain/post"
 	"github.com/dankedev/tulis-go/domain/setup"
 	"github.com/dankedev/tulis-go/domain/user"
+	"github.com/dankedev/tulis-go/domain/webhook"
 	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/dankedev/tulis-go/middleware"
 	"github.com/dankedev/tulis-go/routes"
@@ -82,9 +85,14 @@ func SetupApp() *fiber.App {
 		pluginSvc := plugin.NewService(pluginRepo)
 		pluginHandler := plugin.NewHandler(pluginSvc)
 
+		// Initialize Webhook domain (must be before PostHandler for injection)
+		webhookRepo := webhook.NewRepository(config.DB)
+		webhookSvc := webhook.NewService(webhookRepo)
+		webhookHandler := webhook.NewHandler(webhookSvc)
+
 		postRepo := post.NewPostRepository(config.DB)
 		postSvc := post.NewPostService(postRepo, pluginSvc)
-		postHandler := post.NewPostHandler(postSvc, wsSvc)
+		postHandler := post.NewPostHandler(postSvc, wsSvc, webhookSvc)
 
 		mediaRepo := media.NewMediaRepository(config.DB)
 
@@ -116,9 +124,21 @@ func SetupApp() *fiber.App {
 		importerSvc := importer.NewImporterService(config.DB, mediaSvc, postRepo, mediaRepo)
 		importerHandler := importer.NewImporterHandler(importerSvc, pluginSvc)
 
+		// Initialize Comment domain
+		commentRepo := comment.NewRepository(config.DB)
+		commentSvc := comment.NewService(commentRepo)
+		commentHandler := comment.NewHandler(commentSvc)
+
+		// Initialize API Key domain
+		apiKeyRepo := apikey.NewRepository(config.DB)
+		apiKeySvc := apikey.NewService(apiKeyRepo)
+		apiKeyHandler := apikey.NewHandler(apiKeySvc)
+
 		// Initialize Public Consumption Handlers
 		publicPostHandler := post.NewPublicHandler(postSvc)
 		publicMediaHandler := media.NewPublicHandler(mediaSvc)
+		sitemapHandler := post.NewSitemapHandler(postSvc)
+		ogImageHandler := post.NewOGImageHandler(postSvc)
 
 		// Serve static uploads
 		app.Static("/uploads", "./uploads")
@@ -127,6 +147,7 @@ func SetupApp() *fiber.App {
 		// 1. PUBLIC API v1 ROUTING (Subdomain Guarded, Rate Limited & Tenant Scoped)
 		// ----------------------------------------------------
 		v1PublicApi := app.Group("/v1")
+		v1PublicApi.Use(middleware.ApiKeyAuth(apiKeySvc))
 		v1PublicApi.Use(middleware.APISubdomainGuard(config.AppConfig.APIHost, config.AppConfig.AppEnv))
 		v1PublicApi.Use(limiter.New(limiter.Config{
 			Max:        60,
@@ -141,6 +162,7 @@ func SetupApp() *fiber.App {
 		// 2. ADMIN & AUTHENTICATED MANAGEMENT ROUTING
 		// ----------------------------------------------------
 		api := app.Group("/api")
+		api.Use(middleware.ApiKeyAuth(apiKeySvc))
 		routes.RegisterSetupRoutes(api, setupHandler)
 		routes.RegisterUserPublicRoutes(api, userHandler)
 		routes.RegisterWorkspacePublicRoutes(api, wsHandler)
@@ -174,6 +196,15 @@ func SetupApp() *fiber.App {
 		routes.RegisterMediaRoutes(v1PublicApi, contentGroup, mediaHandler, publicMediaHandler)
 		routes.RegisterPluginRoutes(contentGroup, pluginHandler)
 		routes.RegisterImporterRoutes(contentGroup, importerHandler)
+		routes.RegisterCommentRoutes(v1PublicApi, contentGroup, commentHandler)
+		routes.RegisterApiKeyRoutes(contentGroup, apiKeyHandler)
+		routes.RegisterWebhookRoutes(contentGroup, webhookHandler)
+
+		// Sitemap endpoint (public, per workspace)
+		v1PublicApi.Get("/workspaces/:id/sitemap", sitemapHandler.GetSitemap)
+
+		// OG Image endpoint (public)
+		v1PublicApi.Get("/og-image/:id", ogImageHandler.GetOGImage)
 	}
 
 	return app
@@ -201,6 +232,10 @@ func main() {
 		&plugin.WorkspacePlugin{},
 		&importer.ImportLog{},
 		&workspace.WorkspaceInvitation{},
+		&comment.Comment{},
+		&apikey.ApiKey{},
+		&webhook.Webhook{},
+		&webhook.DeliveryLog{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)

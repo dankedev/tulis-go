@@ -110,7 +110,12 @@ func (h *PublicHandler) GetPost(c *fiber.Ctx) error {
 		return response.Error(c, "NOT_FOUND", err.Error(), nil)
 	}
 
-	return response.Success(c, post, "Public post retrieved successfully")
+	return c.JSON(fiber.Map{
+		"status":  200,
+		"message": "Public post retrieved successfully",
+		"data":    post,
+		"json_ld": GenerateJSONLD(post, "Tulis CMS", c.Hostname()),
+	})
 }
 
 // ListTaxonomies godoc

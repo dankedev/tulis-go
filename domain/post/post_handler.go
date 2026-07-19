@@ -16,6 +16,7 @@ package post
 import (
 	"strconv"
 
+	"github.com/dankedev/tulis-go/domain/webhook"
 	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/dankedev/tulis-go/utils/response"
 	"github.com/gofiber/fiber/v2"
@@ -23,12 +24,13 @@ import (
 )
 
 type PostHandler struct {
-	svc   PostService
-	wsSvc workspace.WorkspaceService
+	svc        PostService
+	wsSvc      workspace.WorkspaceService
+	webhookSvc *webhook.Service
 }
 
-func NewPostHandler(svc PostService, wsSvc workspace.WorkspaceService) *PostHandler {
-	return &PostHandler{svc: svc, wsSvc: wsSvc}
+func NewPostHandler(svc PostService, wsSvc workspace.WorkspaceService, webhookSvc *webhook.Service) *PostHandler {
+	return &PostHandler{svc: svc, wsSvc: wsSvc, webhookSvc: webhookSvc}
 }
 
 // Create godoc
@@ -81,6 +83,13 @@ func (h *PostHandler) Create(c *fiber.Ctx) error {
 	post, err := h.svc.CreatePost(c.Context(), req, authorID, workspaceID)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	if h.webhookSvc != nil {
+		h.webhookSvc.Dispatch(c.Context(), workspaceID, "post.created", post)
+		if post.Status == "published" {
+			h.webhookSvc.Dispatch(c.Context(), workspaceID, "post.published", post)
+		}
 	}
 
 	return response.Success(c, post, "Post created successfully")
@@ -188,6 +197,13 @@ func (h *PostHandler) Update(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
 
+	if h.webhookSvc != nil {
+		h.webhookSvc.Dispatch(c.Context(), post.WorkspaceID, "post.updated", post)
+		if post.Status == "published" {
+			h.webhookSvc.Dispatch(c.Context(), post.WorkspaceID, "post.published", post)
+		}
+	}
+
 	return response.Success(c, post, "Post updated successfully")
 }
 
@@ -255,6 +271,10 @@ func (h *PostHandler) Delete(c *fiber.Ctx) error {
 
 	if err := h.svc.DeletePost(c.Context(), id); err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	if h.webhookSvc != nil {
+		h.webhookSvc.Dispatch(c.Context(), workspaceID, "post.deleted", existingPost)
 	}
 
 	return response.Success(c, nil, "Post deleted successfully")

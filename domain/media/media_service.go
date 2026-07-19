@@ -8,6 +8,9 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+	"io"
+	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,6 +25,7 @@ var (
 
 type MediaService interface {
 	SaveFile(ctx context.Context, workspaceID uuid.UUID, filename string, fileData []byte, mimeType string, size int64, altText, caption string) (*Media, error)
+	UploadFromURL(ctx context.Context, workspaceID uuid.UUID, fileURL, altText, caption string) (*Media, error)
 	GetMediaByID(ctx context.Context, id uuid.UUID) (*Media, error)
 	UpdateMedia(ctx context.Context, id uuid.UUID, altText, caption string) (*Media, error)
 	DeleteMedia(ctx context.Context, id uuid.UUID) error
@@ -137,6 +141,36 @@ func (s *mediaService) ListMedia(ctx context.Context, workspaceID uuid.UUID, pag
 
 	offset := (page - 1) * perPage
 	return s.repo.List(ctx, workspaceID, perPage, offset, search)
+}
+
+// UploadFromURL downloads a file from a remote URL and stores it in the media library.
+func (s *mediaService) UploadFromURL(ctx context.Context, workspaceID uuid.UUID, fileURL, altText, caption string) (*Media, error) {
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		return nil, errors.New("failed to download file: " + err.Error())
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return nil, errors.New("remote server returned status " + resp.Status)
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 50*1024*1024)) // 50MB max
+	if err != nil {
+		return nil, errors.New("failed to read downloaded file: " + err.Error())
+	}
+
+	mimeType := resp.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	filename := filepath.Base(fileURL)
+	if filename == "" || filename == "." || filename == "/" {
+		filename = "download"
+	}
+
+	return s.SaveFile(ctx, workspaceID, filename, data, mimeType, int64(len(data)), altText, caption)
 }
 
 func scaleImage(src image.Image, w, h int) image.Image {

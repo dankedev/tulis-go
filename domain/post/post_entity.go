@@ -32,6 +32,7 @@ type Post struct {
 	OgpDesc      string                 `gorm:"type:text" json:"ogp_desc,omitempty"`
 	OgpImage     string                 `gorm:"type:text" json:"ogp_image,omitempty"`
 	SeoScore     int                    `gorm:"type:integer;default:0" json:"seo_score"`
+	ReadingTime  int                    `gorm:"type:integer;default:0" json:"reading_time"` // estimated minutes
 }
 
 func (p *Post) GetTitle() string { return p.Title }
