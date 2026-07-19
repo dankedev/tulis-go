@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dankedev/tulis-go/config"
+	"github.com/dankedev/tulis-go/domain/ai"
 	"github.com/dankedev/tulis-go/domain/apikey"
 	"github.com/dankedev/tulis-go/domain/comment"
 	"github.com/dankedev/tulis-go/domain/importer"
@@ -212,6 +213,16 @@ func SetupApp() *fiber.App {
 
 		// OG Image endpoint (public)
 		v1PublicApi.Get("/og-image/:id", ogImageHandler.GetOGImage)
+
+		// AI endpoints (if configured)
+		if aiCfg := ai.LoadConfigFromEnv(); aiCfg.IsConfigured() {
+			aiProvider := ai.NewProvider(aiCfg)
+			aiHandler := ai.NewHandler(aiProvider)
+			routes.RegisterAIRoutes(contentGroup, aiHandler)
+			log.Println("[AI] Provider configured and AI routes enabled")
+		} else {
+			log.Println("[AI] Not configured — AI routes disabled. Set AI_API_KEY and AI_PROVIDER.")
+		}
 	}
 
 	return app
