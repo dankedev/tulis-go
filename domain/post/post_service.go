@@ -154,6 +154,10 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		OgpImage:     req.OgpImage,
 	}
 
+	if req.Language != "" {
+		post.Language = req.Language
+	}
+
 	if req.Content != "" {
 		post.ReadingTime = calculateReadingTime(req.Content)
 	}

@@ -19,6 +19,7 @@ type CreatePostReq struct {
 	OgpTitle     string                 `json:"ogp_title"`
 	OgpDesc      string                 `json:"ogp_desc"`
 	OgpImage     string                 `json:"ogp_image"`
+	Language     string                 `json:"language"` // ISO 639-1: id, en, ar
 }
 
 type UpdatePostReq struct {
