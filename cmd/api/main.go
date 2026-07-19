@@ -13,6 +13,7 @@ import (
 	"github.com/dankedev/tulis-go/domain/apikey"
 	"github.com/dankedev/tulis-go/domain/comment"
 	"github.com/dankedev/tulis-go/domain/importer"
+	"github.com/dankedev/tulis-go/domain/linkchecker"
 	"github.com/dankedev/tulis-go/domain/media"
 	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/domain/post"
@@ -128,6 +129,11 @@ func SetupApp() *fiber.App {
 		commentRepo := comment.NewRepository(config.DB)
 		commentSvc := comment.NewService(commentRepo)
 		commentHandler := comment.NewHandler(commentSvc)
+
+		// Initialize Link Checker domain (feat-045)
+		linkCheckerRepo := linkchecker.NewRepository(config.DB)
+		linkCheckerSvc := linkchecker.NewService(linkCheckerRepo, postRepo, config.DB, config.AppConfig.BrokenLinkThreshold)
+		linkCheckerHandler := linkchecker.NewHandler(linkCheckerSvc)
 
 		// Initialize API Key domain
 		apiKeyRepo := apikey.NewRepository(config.DB)

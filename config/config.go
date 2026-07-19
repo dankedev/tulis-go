@@ -45,6 +45,8 @@ type Config struct {
 	DBMaxIdleConns      int
 	DBMaxOpenConns      int
 	DBConnMaxLifetimeMinutes int
+	LinkCheckIntervalHours int
+	BrokenLinkThreshold int
 }
 
 var AppConfig *Config
@@ -90,6 +92,8 @@ func LoadConfig() {
 		DBMaxOpenConns:      getEnvInt("DB_MAX_OPEN_CONNS", 100),
 		DBConnMaxLifetimeMinutes: getEnvInt("DB_CONN_MAX_LIFETIME_MINS", 60),
 		FrontURL : getEnv("FRONTEND_URL","http://localhost:3000"),
+		LinkCheckIntervalHours: getEnvInt("LINK_CHECK_INTERVAL_HOURS", 24),
+		BrokenLinkThreshold: getEnvInt("BROKEN_LINK_THRESHOLD", 5),
 	}
 }
 
