@@ -588,4 +588,49 @@ func (h *ImporterHandler) ImportMarkdown(c *fiber.Ctx) error {
 	return response.Success(c, importLog, "Markdown import completed")
 }
 
+// PreviewMarkdown godoc
+// @Summary Preview markdown files from a zip archive
+// @Description Parses a zip of .md files and returns a preview without importing
+// @Tags Importer
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param file formData file true "Zip file containing markdown files"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /api/plugins/importer/markdown/preview [post]
+func (h *ImporterHandler) PreviewMarkdown(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "File is required", nil)
+	}
+	if !strings.HasSuffix(strings.ToLower(fileHeader.Filename), ".zip") {
+		return response.Error(c, "BAD_REQUEST", "Only .zip files are accepted", nil)
+	}
+
+	f, err := fileHeader.Open()
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Failed to open uploaded file", nil)
+	}
+	defer f.Close()
+
+	previews, err := h.svc.PreviewMarkdown(c.Context(), workspaceID, f)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, previews, "Markdown preview generated")
+}
+
 

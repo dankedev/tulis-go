@@ -35,6 +35,16 @@ type ImporterService interface {
 	InspectStrapi(ctx context.Context, urlStr, token, collectionType string) ([]string, error)
 	ImportStrapiBackground(ctx context.Context, workspaceID, authorID, logID uuid.UUID, urlStr, token, collectionType string, mapping map[string]string, defaultStatus, defaultPostType string)
 	ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string, opts ImportMarkdownOpts) (*ImportLog, error)
+	PreviewMarkdown(ctx context.Context, workspaceID uuid.UUID, file multipart.File) ([]MdFilePreview, error)
+}
+
+type MdFilePreview struct {
+	Path       string  `json:"path"`
+	Title      string  `json:"title"`
+	Slug       string  `json:"slug"`
+	Category   string  `json:"category"`
+	AlreadyExists bool `json:"already_exists"`
+	Status     string  `json:"status"` // "new", "duplicate"
 }
 
 type importerService struct {
@@ -1734,23 +1744,8 @@ func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, autho
 
 		mdBody := extractMdBody(body)
 		dir := filepath.Dir(zf.Name)
-		baseName := strings.TrimSuffix(filepath.Base(zf.Name), ".md")
 
-		// Slug = folder-prefixed to avoid cross-folder collisions
-		slugParts := []string{}
-		if dir != "." && dir != "" {
-			for _, part := range strings.Split(dir, "/") {
-				p := helpers.Slugify(part)
-				if p != "" {
-					slugParts = append(slugParts, p)
-				}
-			}
-		}
-		slugParts = append(slugParts, helpers.Slugify(baseName))
-		slug := strings.Join(slugParts, "-")
-		if slug == "" {
-			slug = helpers.Slugify(title)
-		}
+		slug := parseMdSlug(zf.Name, title)
 
 		// Skip duplicate slugs only when opted in
 		existingPost, _ := s.postRepo.FindBySlug(ctx, workspaceID, slug)
@@ -1902,6 +1897,87 @@ func extractMdBody(md string) string {
 		return ""
 	}
 	return strings.TrimSpace(lines[1])
+}
+
+func parseMdSlug(zfName string, title string) string {
+	dir := filepath.Dir(zfName)
+	baseName := strings.TrimSuffix(filepath.Base(zfName), ".md")
+	slugParts := []string{}
+	if dir != "." && dir != "" {
+		for _, part := range strings.Split(dir, "/") {
+			p := helpers.Slugify(part)
+			if p != "" {
+				slugParts = append(slugParts, p)
+			}
+		}
+	}
+	slugParts = append(slugParts, helpers.Slugify(baseName))
+	slug := strings.Join(slugParts, "-")
+	if slug == "" {
+		slug = helpers.Slugify(title)
+	}
+	return slug
+}
+
+func (s *importerService) PreviewMarkdown(ctx context.Context, workspaceID uuid.UUID, file multipart.File) ([]MdFilePreview, error) {
+	fileData, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	zipReader, err := zip.NewReader(bytes.NewReader(fileData), int64(len(fileData)))
+	if err != nil {
+		return nil, fmt.Errorf("invalid zip file: %w", err)
+	}
+
+	var previews []MdFilePreview
+	for _, zf := range zipReader.File {
+		if zf.FileInfo().IsDir() || !strings.HasSuffix(strings.ToLower(zf.Name), ".md") {
+			continue
+		}
+
+		rc, err := zf.Open()
+		if err != nil {
+			continue
+		}
+		content, _ := io.ReadAll(rc)
+		rc.Close()
+
+		body := strings.TrimSpace(string(content))
+		if body == "" {
+			continue
+		}
+
+		title := extractMdTitle(body)
+		if title == "" {
+			continue
+		}
+
+		slug := parseMdSlug(zf.Name, title)
+		dir := filepath.Dir(zf.Name)
+		catName := ""
+		if dir != "." && dir != "" {
+			catName = strings.ReplaceAll(dir, "/", " / ")
+		}
+
+		exists, _ := s.postRepo.FindBySlug(ctx, workspaceID, slug)
+		already := exists != nil
+		status := "new"
+		if already {
+			status = "duplicate"
+		}
+
+		previews = append(previews, MdFilePreview{
+			Path:          zf.Name,
+			Title:         title,
+			Slug:          slug,
+			Category:      catName,
+			AlreadyExists: already,
+			Status:        status,
+		})
+	}
+
+	return previews, nil
 }
 
 
