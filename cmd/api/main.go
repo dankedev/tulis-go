@@ -17,6 +17,7 @@ import (
 	"github.com/dankedev/tulis-go/domain/importer"
 	"github.com/dankedev/tulis-go/domain/linkchecker"
 	"github.com/dankedev/tulis-go/domain/media"
+	"github.com/dankedev/tulis-go/domain/membership"
 	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/domain/post"
 	"github.com/dankedev/tulis-go/domain/setup"
@@ -146,6 +147,9 @@ func SetupApp() *fiber.App {
 		analyticsRepo := analytics.NewRepository(config.DB)
 		analyticsHandler := analytics.NewHandler(analyticsRepo)
 
+		// Initialize Membership domain
+		membershipHandler := membership.NewHandler(config.DB)
+
 		// Initialize Public Consumption Handlers
 		publicPostHandler := post.NewPublicHandler(postSvc)
 		publicMediaHandler := media.NewPublicHandler(mediaSvc)
@@ -213,6 +217,7 @@ func SetupApp() *fiber.App {
 		routes.RegisterApiKeyRoutes(contentGroup, apiKeyHandler)
 		routes.RegisterWebhookRoutes(contentGroup, webhookHandler)
 	routes.RegisterAnalyticsRoutes(v1PublicApi, contentGroup, analyticsHandler)
+	routes.RegisterMembershipRoutes(contentGroup, membershipHandler)
 
 		// Sitemap endpoint (public, per workspace)
 		v1PublicApi.Get("/workspaces/:id/sitemap", sitemapHandler.GetSitemap)
@@ -261,6 +266,8 @@ func main() {
 		&webhook.Webhook{},
 		&webhook.DeliveryLog{},
 		&analytics.PageView{},
+		&membership.SubscriptionTier{},
+		&membership.UserSubscription{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
