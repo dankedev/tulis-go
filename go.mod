@@ -15,6 +15,7 @@ require (
 	github.com/swaggo/fiber-swagger v1.3.0
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.53.0
+	golang.org/x/net v0.55.0
 	golang.org/x/oauth2 v0.36.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/sqlite v1.6.0
@@ -63,7 +64,6 @@ require (
 	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/mod v0.36.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
