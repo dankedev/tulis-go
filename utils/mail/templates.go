@@ -327,3 +327,18 @@ func GetGeneralNotificationEmail(name, title, message string) string {
 	`, title, name, strings.ReplaceAll(message, "\n", "<br>"))
 	return getLayout(title, content)
 }
+
+// GetBrokenLinkAlertEmail notifies workspace admins that broken links were detected.
+func GetBrokenLinkAlertEmail(name string, count int, frontURL string) string {
+	content := fmt.Sprintf(`
+		<div class="badge" style="background-color: #fef2f2; color: #b91c1c; border-color: #fecaca;">Peringatan Tautan Rusak</div>
+		<h2>Tautan Rusak Terdeteksi</h2>
+		<p>Halo %s,</p>
+		<p>Pemindai tautan otomatis Tulis CMS menemukan <strong>%d tautan rusak</strong> pada postingan di workspace Anda. Tautan yang rusak dapat merusak SEO dan pengalaman pembaca.</p>
+		<p>Silakan buka dashboard untuk meninjau dan memperbaiki tautan tersebut agar konten tetap berkualitas.</p>
+		<div class="action-box">
+			<a href="%s/dashboard/links" class="btn" target="_blank">Tinjau Tautan Rusak</a>
+		</div>
+	`, name, count, frontURL)
+	return getLayout("Peringatan Tautan Rusak", content)
+}
