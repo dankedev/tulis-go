@@ -49,7 +49,7 @@ func (t *testPostRepo) GetPostTaxonomies(ctx context.Context, postID uuid.UUID) 
 func (t *testPostRepo) ListPublic(ctx context.Context, wsID uuid.UUID, postType, taxonomySlug, sortBy string, limit, offset int) ([]post.Post, int64, error) {
 	return nil, 0, nil
 }
-func (t *testPostRepo) List(ctx context.Context, wsID uuid.UUID, postType, status, search string, limit, offset int) ([]post.Post, int64, error) {
+func (t *testPostRepo) List(ctx context.Context, wsID uuid.UUID, postType, status, search string, authorID *uuid.UUID, limit, offset int) ([]post.Post, int64, error) {
 	if status == "published" {
 		return t.posts, int64(len(t.posts)), nil
 	}
