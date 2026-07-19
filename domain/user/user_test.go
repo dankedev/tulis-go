@@ -55,7 +55,7 @@ func setupTestDB(t *testing.T) (*gorm.DB, UserService, *AuthHandler, jwt.JWTServ
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	err = db.AutoMigrate(&User{}, &workspace.Workspace{})
+	err = db.AutoMigrate(&User{}, &workspace.Workspace{}, &workspace.WorkspaceMember{})
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
@@ -139,13 +139,16 @@ func TestUserServiceAndHandler(t *testing.T) {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Expected 200, got %d", resp.StatusCode)
+			t.Fatalf("Expected 200, got %d", resp.StatusCode)
 		}
 
 		var result map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&result)
 
-		data := result["data"].(map[string]interface{})
+		data, ok := result["data"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected 'data' in login response, got: %v", result)
+		}
 		loginToken := data["token"].(string)
 		if loginToken == "" {
 			t.Error("Expected token in login response")

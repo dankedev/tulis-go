@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dankedev/tulis-go/domain/post"
+	"github.com/dankedev/tulis-go/domain/webhook"
 	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -31,9 +32,12 @@ func setupTestPostDB(t *testing.T) (*gorm.DB, post.PostService, *post.PostHandle
 	wsRepo := workspace.NewWorkspaceRepository(db)
 	wsSvc := workspace.NewWorkspaceService(wsRepo)
 
+	webhookRepo := webhook.NewRepository(db)
+	webhookSvc := webhook.NewService(webhookRepo)
+
 	repo := post.NewPostRepository(db)
 	svc := post.NewPostService(repo, nil)
-	handler := post.NewPostHandler(svc, wsSvc)
+	handler := post.NewPostHandler(svc, wsSvc, webhookSvc)
 
 	return db, svc, handler
 }

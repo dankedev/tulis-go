@@ -18,7 +18,7 @@ func TestEmailVerificationAndResetPassword(t *testing.T) {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	err = db.AutoMigrate(&User{}, &workspace.Workspace{})
+	err = db.AutoMigrate(&User{}, &workspace.Workspace{}, &workspace.WorkspaceMember{})
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
