@@ -12,6 +12,7 @@ import (
 
 var roleWeights = map[string]int{
 	"superadmin": 5,
+	"owner":      4,
 	"admin":      4,
 	"editor":     3,
 	"author":     2,
