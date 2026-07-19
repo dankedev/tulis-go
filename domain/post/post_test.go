@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -940,247 +941,246 @@ func TestPostPermissions(t *testing.T) {
 		}, author1ID, wsID)
 
 		currentUserID = author1ID
-				req := httptest.NewRequest("DELETE", "/api/posts/"+author1PostToDel.ID.String(), nil)
-				resp, _ := app.Test(req, -1)
-				if resp.StatusCode != http.StatusOK {
-					t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
-				}
-			})
+		req := httptest.NewRequest("DELETE", "/api/posts/"+author1PostToDel.ID.String(), nil)
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", resp.StatusCode)
+		}
+	})
+}
+
+func TestPostTypeFiltering(t *testing.T) {
+	db, _, handler := setupTestPostDB(t)
+
+	app := fiber.New()
+	userID := uuid.New()
+	wsID := uuid.New()
+
+	// Insert test member (superadmin so all permissions pass)
+	err := db.Create(&workspace.WorkspaceMember{
+		ID:          uuid.New(),
+		WorkspaceID: wsID,
+		UserID:      userID,
+		Role:        "superadmin",
+	}).Error
+	if err != nil {
+		t.Fatalf("Failed to create test member: %v", err)
+	}
+
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("user_id", userID.String())
+		c.Locals("workspace_id", wsID.String())
+		return c.Next()
+	})
+
+	app.Post("/api/posts", handler.Create)
+	app.Get("/api/posts", handler.List)
+	app.Post("/api/post-types", handler.RegisterPostType)
+
+	// --- Register custom post type "project" ---
+	cptReq := post.CreatePostTypeReq{
+		Name:        "Project",
+		Slug:        "project",
+		Description: "Custom project CPT",
+		Fields: []post.CustomFieldSchema{
+			{Name: "deadline", Label: "Deadline", Type: "text", Required: false},
+		},
+	}
+	jsonBytes, _ := json.Marshal(cptReq)
+	req := httptest.NewRequest("POST", "/api/post-types", bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to register custom post type: %d", resp.StatusCode)
+	}
+
+	// --- Create posts of different types ---
+	// 1. A regular "post" type (default)
+	postReq := post.CreatePostReq{
+		Title:   "Regular Blog Post",
+		Content: "A regular post content",
+		Status:  "draft",
+	}
+	jsonBytes, _ = json.Marshal(postReq)
+	req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = app.Test(req, -1)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to create regular post: %d", resp.StatusCode)
+	}
+
+	// 2. A "page" type
+	pageReq := post.CreatePostReq{
+		Title:    "About Us Page",
+		Content:  "About page content",
+		Status:   "draft",
+		PostType: "page",
+	}
+	jsonBytes, _ = json.Marshal(pageReq)
+	req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = app.Test(req, -1)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to create page: %d", resp.StatusCode)
+	}
+
+	// 3. A "project" CPT (registered above)
+	projectReq := post.CreatePostReq{
+		Title:    "Sample Project",
+		Content:  "Project description",
+		Status:   "draft",
+		PostType: "project",
+	}
+	jsonBytes, _ = json.Marshal(projectReq)
+	req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = app.Test(req, -1)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to create project: %d", resp.StatusCode)
+	}
+
+	t.Run("1. GET /api/posts?type=post returns only posts with post_type=post", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/posts?type=post", nil)
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200, got %d", resp.StatusCode)
 		}
 
-		func TestPostTypeFiltering(t *testing.T) {
-			db, svc, handler := setupTestPostDB(t)
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+		data := result["data"].([]interface{})
 
-			app := fiber.New()
-			userID := uuid.New()
-			wsID := uuid.New()
-
-			// Insert test member (superadmin so all permissions pass)
-			err := db.Create(&workspace.WorkspaceMember{
-				ID:          uuid.New(),
-				WorkspaceID: wsID,
-				UserID:      userID,
-				Role:        "superadmin",
-			}).Error
-			if err != nil {
-				t.Fatalf("Failed to create test member: %v", err)
+		for i, item := range data {
+			p := item.(map[string]interface{})
+			if p["post_type"] != "post" {
+				t.Errorf("Item %d: expected post_type 'post', got '%v'", i, p["post_type"])
 			}
-
-			app.Use(func(c *fiber.Ctx) error {
-				c.Locals("user_id", userID.String())
-				c.Locals("workspace_id", wsID.String())
-				return c.Next()
-			})
-
-			app.Post("/api/posts", handler.Create)
-			app.Get("/api/posts", handler.List)
-			app.Post("/api/post-types", handler.RegisterPostType)
-
-			// ---- Register custom post type "project" ----
-			cptReq := post.CreatePostTypeReq{
-				Name:        "Project",
-				Slug:        "project",
-				Description: "Custom project CPT",
-				Fields: []post.CustomFieldSchema{
-					{Name: "deadline", Label: "Deadline", Type: "text", Required: false},
-				},
-			}
-			jsonBytes, _ := json.Marshal(cptReq)
-			req := httptest.NewRequest("POST", "/api/post-types", bytes.NewBuffer(jsonBytes))
-			req.Header.Set("Content-Type", "application/json")
-			resp, err := app.Test(req, -1)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("Failed to register custom post type: %d", resp.StatusCode)
-			}
-
-			// ---- Create posts of different types ----
-			// 1. A regular "post" type (default)
-			postReq := post.CreatePostReq{
-				Title:   "Regular Blog Post",
-				Content: "A regular post content",
-				Status:  "draft",
-			}
-			jsonBytes, _ = json.Marshal(postReq)
-			req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
-			req.Header.Set("Content-Type", "application/json")
-			resp, _ = app.Test(req, -1)
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("Failed to create regular post: %d", resp.StatusCode)
-			}
-
-			// 2. A "page" type
-			pageReq := post.CreatePostReq{
-				Title:    "About Us Page",
-				Content:  "About page content",
-				Status:   "draft",
-				PostType: "page",
-			}
-			jsonBytes, _ = json.Marshal(pageReq)
-			req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
-			req.Header.Set("Content-Type", "application/json")
-			resp, _ = app.Test(req, -1)
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("Failed to create page: %d", resp.StatusCode)
-			}
-
-			// 3. A "project" CPT (registered above)
-			projectReq := post.CreatePostReq{
-				Title:    "Sample Project",
-				Content:  "Project description",
-				Status:   "draft",
-				PostType: "project",
-			}
-			jsonBytes, _ = json.Marshal(projectReq)
-			req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
-			req.Header.Set("Content-Type", "application/json")
-			resp, _ = app.Test(req, -1)
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("Failed to create project: %d", resp.StatusCode)
-			}
-
-			t.Run("1. GET /api/posts?type=post returns only posts with post_type=post", func(t *testing.T) {
-				req := httptest.NewRequest("GET", "/api/posts?type=post", nil)
-				resp, err := app.Test(req, -1)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if resp.StatusCode != http.StatusOK {
-					t.Fatalf("Expected 200, got %d", resp.StatusCode)
-				}
-
-				var result map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&result)
-				data := result["data"].([]interface{})
-
-				for i, item := range data {
-					p := item.(map[string]interface{})
-					if p["post_type"] != "post" {
-						t.Errorf("Item %d: expected post_type 'post', got '%v'", i, p["post_type"])
-					}
-				}
-
-				// Should have exactly 1 "post" type
-				if len(data) != 1 {
-					t.Errorf("Expected exactly 1 post with type 'post', got %d", len(data))
-				}
-			})
-
-			t.Run("2. GET /api/posts?type=page returns only posts with post_type=page", func(t *testing.T) {
-				req := httptest.NewRequest("GET", "/api/posts?type=page", nil)
-				resp, err := app.Test(req, -1)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if resp.StatusCode != http.StatusOK {
-					t.Fatalf("Expected 200, got %d", resp.StatusCode)
-				}
-
-				var result map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&result)
-				data := result["data"].([]interface{})
-
-				for i, item := range data {
-					p := item.(map[string]interface{})
-					if p["post_type"] != "page" {
-						t.Errorf("Item %d: expected post_type 'page', got '%v'", i, p["post_type"])
-					}
-				}
-
-				if len(data) != 1 {
-					t.Errorf("Expected exactly 1 post with type 'page', got %d", len(data))
-				}
-			})
-
-			t.Run("3. GET /api/posts?type=project returns only posts with that custom CPT", func(t *testing.T) {
-				req := httptest.NewRequest("GET", "/api/posts?type=project", nil)
-				resp, err := app.Test(req, -1)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if resp.StatusCode != http.StatusOK {
-					t.Fatalf("Expected 200, got %d", resp.StatusCode)
-				}
-
-				var result map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&result)
-				data := result["data"].([]interface{})
-
-				for i, item := range data {
-					p := item.(map[string]interface{})
-					if p["post_type"] != "project" {
-						t.Errorf("Item %d: expected post_type 'project', got '%v'", i, p["post_type"])
-					}
-				}
-
-				if len(data) != 1 {
-					t.Errorf("Expected exactly 1 post with type 'project', got %d", len(data))
-				}
-			})
-
-			t.Run("4. Creating a post with invalid (unregistered) custom post_type returns error", func(t *testing.T) {
-				badReq := post.CreatePostReq{
-					Title:    "Invalid CPT Post",
-					Content:  "This should fail",
-					Status:   "draft",
-					PostType: "unknown_cpt",
-				}
-				jsonBytes, _ := json.Marshal(badReq)
-				req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
-				req.Header.Set("Content-Type", "application/json")
-				resp, _ := app.Test(req, -1)
-
-				if resp.StatusCode == http.StatusOK {
-					t.Error("Expected error when creating post with unregistered custom post type, got 200")
-				}
-
-				var result map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&result)
-				msg, hasMessage := result["message"]
-				if hasMessage {
-					msgStr := msg.(string)
-					if msgStr != "custom post type 'unknown_cpt' is not registered in this workspace" &&
-						!strings.Contains(msgStr, "not registered") {
-						t.Logf("Got error message: %s", msgStr)
-					}
-				}
-			})
-
-			t.Run("5. List handler returns all posts (authorID=nil for admin/editor)", func(t *testing.T) {
-				req := httptest.NewRequest("GET", "/api/posts", nil)
-				resp, err := app.Test(req, -1)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if resp.StatusCode != http.StatusOK {
-					t.Fatalf("Expected 200, got %d", resp.StatusCode)
-				}
-
-				var result map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&result)
-				data := result["data"].([]interface{})
-
-				// We created 3 posts (regular, page, project) — all should be visible
-				if len(data) != 3 {
-					t.Errorf("Expected 3 posts (all types), got %d", len(data))
-				}
-
-				// Verify all 3 post types are present
-				typeSet := make(map[string]bool)
-				for _, item := range data {
-					p := item.(map[string]interface{})
-					typeSet[p["post_type"].(string)] = true
-				}
-				if !typeSet["post"] {
-					t.Error("Expected 'post' type in unfiltered list")
-				}
-				if !typeSet["page"] {
-					t.Error("Expected 'page' type in unfiltered list")
-				}
-				if !typeSet["project"] {
-					t.Error("Expected 'project' type in unfiltered list")
-				}
-			})
 		}
+
+		if len(data) != 1 {
+			t.Errorf("Expected exactly 1 post with type 'post', got %d", len(data))
+		}
+	})
+
+	t.Run("2. GET /api/posts?type=page returns only posts with post_type=page", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/posts?type=page", nil)
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200, got %d", resp.StatusCode)
+		}
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+		data := result["data"].([]interface{})
+
+		for i, item := range data {
+			p := item.(map[string]interface{})
+			if p["post_type"] != "page" {
+				t.Errorf("Item %d: expected post_type 'page', got '%v'", i, p["post_type"])
+			}
+		}
+
+		if len(data) != 1 {
+			t.Errorf("Expected exactly 1 post with type 'page', got %d", len(data))
+		}
+	})
+
+	t.Run("3. GET /api/posts?type=project returns only posts with that custom CPT", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/posts?type=project", nil)
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200, got %d", resp.StatusCode)
+		}
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+		data := result["data"].([]interface{})
+
+		for i, item := range data {
+			p := item.(map[string]interface{})
+			if p["post_type"] != "project" {
+				t.Errorf("Item %d: expected post_type 'project', got '%v'", i, p["post_type"])
+			}
+		}
+
+		if len(data) != 1 {
+			t.Errorf("Expected exactly 1 post with type 'project', got %d", len(data))
+		}
+	})
+
+	t.Run("4. Creating a post with invalid (unregistered) custom post_type returns error", func(t *testing.T) {
+		badReq := post.CreatePostReq{
+			Title:    "Invalid CPT Post",
+			Content:  "This should fail",
+			Status:   "draft",
+			PostType: "unknown_cpt",
+		}
+		jsonBytes, _ := json.Marshal(badReq)
+		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+
+		if resp.StatusCode == http.StatusOK {
+			t.Error("Expected error when creating post with unregistered custom post type, got 200")
+		}
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+		msg, hasMessage := result["message"]
+		if hasMessage {
+			msgStr := msg.(string)
+			if msgStr != "custom post type 'unknown_cpt' is not registered in this workspace" &&
+				!strings.Contains(msgStr, "not registered") {
+				t.Logf("Got error message: %s", msgStr)
+			}
+		}
+	})
+
+	t.Run("5. List handler returns all posts (authorID=nil for admin/editor)", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/posts", nil)
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200, got %d", resp.StatusCode)
+		}
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+		data := result["data"].([]interface{})
+
+		// We created 3 posts (regular, page, project) — all should be visible
+		if len(data) != 3 {
+			t.Errorf("Expected 3 posts (all types), got %d", len(data))
+		}
+
+		// Verify all 3 post types are present
+		typeSet := make(map[string]bool)
+		for _, item := range data {
+			p := item.(map[string]interface{})
+			typeSet[p["post_type"].(string)] = true
+		}
+		if !typeSet["post"] {
+			t.Error("Expected 'post' type in unfiltered list")
+		}
+		if !typeSet["page"] {
+			t.Error("Expected 'page' type in unfiltered list")
+		}
+		if !typeSet["project"] {
+			t.Error("Expected 'project' type in unfiltered list")
+		}
+	})
+}
