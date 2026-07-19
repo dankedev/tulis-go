@@ -21,6 +21,7 @@ type PostRepository interface {
 	FindPostTypeByID(ctx context.Context, id uuid.UUID) (*PostType, error)
 	FindPostTypeBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*PostType, error)
 	ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error)
+	UpdatePostType(ctx context.Context, cpt *PostType) error
 	DeletePostType(ctx context.Context, id uuid.UUID) error
 
 	// PostRevision operations
@@ -139,6 +140,10 @@ func (r *postRepository) ListPostTypes(ctx context.Context, workspaceID uuid.UUI
 
 func (r *postRepository) DeletePostType(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&PostType{}, "id = ?", id).Error
+}
+
+func (r *postRepository) UpdatePostType(ctx context.Context, cpt *PostType) error {
+	return r.db.WithContext(ctx).Save(cpt).Error
 }
 
 // PostRevision CRUD implementations

@@ -21,6 +21,7 @@ func RegisterPostRoutes(publicApi fiber.Router, tenantGroup fiber.Router, postHa
 	tenantGroup.Get("/post-types", postHandler.ListPostTypes)
 	tenantGroup.Get("/post-types/:id", postHandler.GetPostTypeByID)
 	tenantGroup.Delete("/post-types/:id", postHandler.DeletePostType)
+	tenantGroup.Put("/post-types/:id", postHandler.UpdatePostType)
 
 	// Post Revisions
 	tenantGroup.Get("/posts/:id/revisions", postHandler.ListRevisions)

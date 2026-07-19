@@ -513,6 +513,40 @@ func (h *PostHandler) DeletePostType(c *fiber.Ctx) error {
 	return response.Success(c, nil, "Custom post type deleted successfully")
 }
 
+// UpdatePostType godoc
+// @Summary Update custom post type
+// @Description Updates an existing custom post type
+// @Tags Post Types
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param Authorization header string true "Bearer token"
+// @Param id path string true "Post type UUID"
+// @Param request body CreatePostTypeReq true "Updated post type data"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/post-types/{id} [put]
+func (h *PostHandler) UpdatePostType(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid post type ID", nil)
+	}
+
+	var req CreatePostTypeReq
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid request body", nil)
+	}
+
+	cpt, err := h.svc.UpdatePostType(c.Context(), id, req.Name, req.Slug, req.Description, req.Icon, req.MenuOrder, req.IsActive, req.Fields)
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
+	}
+
+	return response.Success(c, cpt, "Custom post type updated successfully")
+}
+
 // ListRevisions godoc
 // @Summary List post revisions
 // @Description Returns all revisions (history snapshots) of a post

@@ -70,6 +70,7 @@ type PostService interface {
 
 	// Custom Post Type (CPT) registrations
 	RegisterPostType(ctx context.Context, workspaceID uuid.UUID, name, slug, description, icon string, menuOrder int, isActive *bool, fields []CustomFieldSchema) (*PostType, error)
+	UpdatePostType(ctx context.Context, id uuid.UUID, name, slug, description, icon string, menuOrder int, isActive *bool, fields []CustomFieldSchema) (*PostType, error)
 	GetPostTypeByID(ctx context.Context, id uuid.UUID) (*PostType, error)
 	GetPostTypeBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*PostType, error)
 	ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]PostType, error)
@@ -519,6 +520,37 @@ func (s *postService) DeletePostType(ctx context.Context, id uuid.UUID) error {
 		return ErrPostTypeNotFound
 	}
 	return s.repo.DeletePostType(ctx, id)
+}
+
+func (s *postService) UpdatePostType(ctx context.Context, id uuid.UUID, name, slug, description, icon string, menuOrder int, isActive *bool, fields []CustomFieldSchema) (*PostType, error) {
+	cpt, err := s.repo.FindPostTypeByID(ctx, id)
+	if err != nil {
+		return nil, ErrPostTypeNotFound
+	}
+	if name != "" {
+		cpt.Name = name
+	}
+	if slug != "" {
+		cpt.Slug = slug
+	}
+	cpt.Description = description
+	if icon != "" {
+		cpt.Icon = icon
+	}
+	cpt.MenuOrder = menuOrder
+	if isActive != nil {
+		cpt.IsActive = *isActive
+	}
+	if fields != nil {
+		if err := validateCustomFieldSchema(fields); err != nil {
+			return nil, err
+		}
+		cpt.FieldsConfig = fields
+	}
+	if err := s.repo.UpdatePostType(ctx, cpt); err != nil {
+		return nil, err
+	}
+	return cpt, nil
 }
 
 // Revisions implementations
