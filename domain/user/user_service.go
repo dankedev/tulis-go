@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dankedev/tulis-go/config"
 	"github.com/dankedev/tulis-go/domain/workspace"
 	"github.com/dankedev/tulis-go/utils/jwt"
 	"github.com/dankedev/tulis-go/utils/mail"
@@ -77,7 +78,7 @@ func (s *userService) Register(ctx context.Context, user *User, password string)
 	}
 
 	// Send branded verification email in background
-	verifyLink := fmt.Sprintf("https://app.tulis.org/verify-email?token=%s", user.VerificationToken)
+	verifyLink := fmt.Sprintf("%s/verify-email?token=%s", config.AppConfig.FrontURL, user.VerificationToken)
 	emailBody := mail.GetVerificationEmail(user.Name, verifyLink)
 	go mail.SendHTMLMail(user.Email, "Konfirmasi Email Anda - Tulis CMS", emailBody)
 
@@ -134,7 +135,9 @@ func (s *userService) RegisterWithWorkspace(ctx context.Context, user *User, pas
 	}
 
 	// Send branded verification email in background
-	verifyLink := fmt.Sprintf("https://app.tulis.org/verify-email?token=%s", user.VerificationToken)
+	// verifyLink := fmt.Sprintf("https://app.tulis.org/verify-email?token=%s", user.VerificationToken)
+	verifyLink := fmt.Sprintf("%s/verify-email?token=%s", config.AppConfig.FrontURL, user.VerificationToken)
+
 	emailBody := mail.GetVerificationEmail(user.Name, verifyLink)
 	go mail.SendHTMLMail(user.Email, "Konfirmasi Email Anda - Tulis CMS", emailBody)
 
@@ -200,7 +203,7 @@ func (s *userService) ChangePassword(ctx context.Context, userID uuid.UUID, oldP
 	}
 
 	user.PasswordHash = string(hashedPassword)
-	
+
 	if err := s.repo.Update(ctx, user); err != nil {
 		return err
 	}
@@ -237,7 +240,8 @@ func (s *userService) ResendVerificationEmail(ctx context.Context, userID uuid.U
 		return err
 	}
 
-	verifyLink := fmt.Sprintf("https://app.tulis.org/verify-email?token=%s", user.VerificationToken)
+	verifyLink := fmt.Sprintf("%s/verify-email?token=%s", config.AppConfig.FrontURL, user.VerificationToken)
+
 	emailBody := mail.GetVerificationEmail(user.Name, verifyLink)
 	go mail.SendHTMLMail(user.Email, "Konfirmasi Email Anda - Tulis CMS", emailBody)
 
@@ -249,7 +253,7 @@ func (s *userService) RequestPasswordReset(ctx context.Context, email string) er
 	if err != nil {
 		return ErrUserNotFound
 	}
-	
+
 	token := uuid.New().String()
 	expiry := time.Now().Add(1 * time.Hour)
 	user.ResetPasswordToken = token
@@ -259,7 +263,8 @@ func (s *userService) RequestPasswordReset(ctx context.Context, email string) er
 		return err
 	}
 
-	resetLink := fmt.Sprintf("https://app.tulis.org/reset-password?token=%s", token)
+	// resetLink := fmt.Sprintf("https://app.tulis.org/reset-password?token=%s", token)
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", config.AppConfig.FrontURL, token)
 	emailBody := mail.GetPasswordResetEmail(user.Name, resetLink)
 	go mail.SendHTMLMail(user.Email, "Reset Password Akun Anda - Tulis CMS", emailBody)
 
@@ -362,8 +367,6 @@ func (s *userService) RegisterWithInvitation(ctx context.Context, token, name, p
 
 	return u, jwtToken, member, nil
 }
-
-
 
 func (s *userService) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	user, err := s.repo.FindByID(ctx, id)

@@ -87,7 +87,7 @@ func (h *OAuthHandler) OAuthCallback(c *fiber.Ctx) error {
 	if err != nil {
 		frontendBase := "http://localhost:3000"
 		if config.AppConfig != nil && config.AppConfig.AppEnv == "production" {
-			frontendBase = "https://app.tulis.org"
+			frontendBase = config.AppConfig.FrontURL
 		}
 		if errors.Is(err, ErrRegistrationDisabled) {
 			return c.Redirect(frontendBase+"/auth/callback?error=registration_disabled", fiber.StatusTemporaryRedirect)
@@ -103,7 +103,7 @@ func getFrontendCallbackURL(token string, user *User, ws *workspace.Workspace) s
 	frontendBase := "http://localhost:3000"
 	if config.AppConfig != nil {
 		if config.AppConfig.AppEnv == "production" {
-			frontendBase = "https://app.tulis.org"
+			frontendBase = config.AppConfig.FrontURL
 		}
 	}
 

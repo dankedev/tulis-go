@@ -3,6 +3,8 @@ package mail
 import (
 	"fmt"
 	"strings"
+
+	"github.com/dankedev/tulis-go/config"
 )
 
 // getLayout wraps html content in our premium Tulis CMS branding layout.
@@ -295,9 +297,9 @@ func Get7DaysInactiveEmail(name string) string {
 		<p>Sudah 7 hari sejak terakhir kali Anda login ke Tulis CMS. Kami merindukan kehadiran Anda di platform kami!</p>
 		<p>Ada banyak konten dan pembaruan baru yang menunggu Anda di workspace Anda. Mari login kembali untuk melanjutkan menulis atau melihat perkembangan terbaru.</p>
 		<div class="action-box">
-			<a href="https://app.tulis.org/login" class="btn" target="_blank">Masuk ke Dashboard</a>
+			<a href="%s/login" class="btn" target="_blank">Masuk ke Dashboard</a>
 		</div>
-	`, name, name)
+	`, name, name, config.AppConfig.FrontURL)
 	return getLayout("Kami merindukanmu!", content)
 }
 
@@ -310,9 +312,9 @@ func Get30DaysNoWriteEmail(name string) string {
 		<p>Sudah 30 hari Anda tidak menulis postingan baru di Tulis CMS. Keyboard Anda mungkin sudah mulai berdebu! 😉</p>
 		<p>Menulis secara konsisten adalah cara terbaik untuk berinteraksi dengan audiens Anda dan membagikan keahlian Anda. Kami memiliki editor Markdown & Rich Text yang sangat responsif dan siap membantu Anda menumpahkan ide-ide brilian Anda.</p>
 		<div class="action-box">
-			<a href="https://app.tulis.org/posts/new" class="btn" target="_blank">Mulai Menulis Post Baru</a>
+			<a href="%s/posts/new" class="btn" target="_blank">Mulai Menulis Post Baru</a>
 		</div>
-	`, name)
+	`, name, config.AppConfig.FrontURL)
 	return getLayout("Bagikan ide barumu!", content)
 }
 

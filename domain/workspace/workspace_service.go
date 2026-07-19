@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dankedev/tulis-go/config"
 	"github.com/dankedev/tulis-go/utils/mail"
 	"github.com/google/uuid"
 )
@@ -236,8 +237,9 @@ func (s *workspaceService) InviteMember(ctx context.Context, workspaceID, invite
 	}
 
 	// Send branded email invitation in background
-	inviteLink := fmt.Sprintf("https://app.tulis.org/invitation/accept?token=%s", token)
-	registerLink := "https://app.tulis.org/register"
+	inviteLink := fmt.Sprintf("%s/invitation/accept?token=%s", config.AppConfig.FrontURL, token)
+
+	registerLink := fmt.Sprintf("%s/register", config.AppConfig.FrontURL)
 	emailBody := mail.GetInvitationEmail(ws.Name, inviterName, inviteLink, registerLink)
 	go mail.SendHTMLMail(email, fmt.Sprintf("Undangan kolaborasi di workspace %s - Tulis CMS", ws.Name), emailBody)
 
@@ -285,4 +287,3 @@ func (s *workspaceService) ListInvitations(ctx context.Context, workspaceID uuid
 func (s *workspaceService) RevokeInvitation(ctx context.Context, workspaceID, invitationID uuid.UUID) error {
 	return s.repo.DeleteInvitation(ctx, workspaceID, invitationID)
 }
-

@@ -26,6 +26,7 @@ type Config struct {
 	R2BucketName        string
 	R2PublicURL         string
 	APIHost             string
+	FrontURL			string
 	SMTPHost            string
 	SMTPPort            int
 	SMTPUser            string
@@ -88,6 +89,7 @@ func LoadConfig() {
 		DBMaxIdleConns:      getEnvInt("DB_MAX_IDLE_CONNS", 10),
 		DBMaxOpenConns:      getEnvInt("DB_MAX_OPEN_CONNS", 100),
 		DBConnMaxLifetimeMinutes: getEnvInt("DB_CONN_MAX_LIFETIME_MINS", 60),
+		FrontURL : getEnv("FRONTEND_URL","http://localhost:3000"),
 	}
 }
 
