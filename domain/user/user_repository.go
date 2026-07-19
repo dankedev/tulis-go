@@ -32,7 +32,7 @@ func (r *userRepository) Create(ctx context.Context, user *User) error {
 
 func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	var user User
-	err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("WorkspaceMembers").First(&user, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*User, err
 
 func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
-	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	err := r.db.WithContext(ctx).Preload("WorkspaceMembers").Where("email = ?", email).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

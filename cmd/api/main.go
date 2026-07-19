@@ -164,11 +164,16 @@ func SetupApp() *fiber.App {
 
 		// Register tenant-scoped routes using domain specific files in routes/
 		routes.RegisterWorkspaceMemberRoutes(tenantGroup, wsHandler)
-		routes.RegisterPostRoutes(v1PublicApi, tenantGroup, postHandler, publicPostHandler)
-		routes.RegisterTaxonomyRoutes(v1PublicApi, tenantGroup, postHandler, publicPostHandler)
-		routes.RegisterMediaRoutes(v1PublicApi, tenantGroup, mediaHandler, publicMediaHandler)
-		routes.RegisterPluginRoutes(tenantGroup, pluginHandler)
-		routes.RegisterImporterRoutes(tenantGroup, importerHandler)
+		
+		// Create a restricted group for content that requires at least 'author' role (blocks 'subscriber')
+		contentGroup := tenantGroup.Group("")
+		contentGroup.Use(middleware.RequireRole(wsSvc, "author"))
+
+		routes.RegisterPostRoutes(v1PublicApi, contentGroup, postHandler, publicPostHandler)
+		routes.RegisterTaxonomyRoutes(v1PublicApi, contentGroup, postHandler, publicPostHandler)
+		routes.RegisterMediaRoutes(v1PublicApi, contentGroup, mediaHandler, publicMediaHandler)
+		routes.RegisterPluginRoutes(contentGroup, pluginHandler)
+		routes.RegisterImporterRoutes(contentGroup, importerHandler)
 	}
 
 	return app
