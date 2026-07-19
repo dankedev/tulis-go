@@ -146,6 +146,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			"role":              user.Role,
 			"created_at":        user.CreatedAt,
 			"email_verified_at": user.EmailVerifiedAt,
+			"workspace_members": user.WorkspaceMembers,
 		},
 	}, "Login successful")
 }
@@ -184,6 +185,7 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 		"avatar_url":        user.AvatarURL,
 		"role":              user.Role,
 		"email_verified_at": user.EmailVerifiedAt,
+		"workspace_members": user.WorkspaceMembers,
 	}, "User data retrieved successfully")
 }
 
