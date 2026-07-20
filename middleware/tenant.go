@@ -72,6 +72,23 @@ func TenantScoping(wsSvc workspace.WorkspaceService) fiber.Handler {
 			}
 		}
 
+		// 4. Fallback: if authenticated, use the user's first workspace.
+		// This prevents 400 "Workspace context missing" when the X-Workspace-ID
+		// header / cookie is absent (e.g. on non-localhost dev or fresh session).
+		if userIDVal := c.Locals("user_id"); userIDVal != nil {
+			if userIDStr, ok := userIDVal.(string); ok && userIDStr != "" {
+				if uid, err := uuid.Parse(userIDStr); err == nil {
+					userWorkspaces, err := wsSvc.ListWorkspaces(c.Context(), uid)
+					if err == nil && len(userWorkspaces) > 0 {
+						ws := userWorkspaces[0]
+						c.Locals("workspace_id", ws.ID.String())
+						c.Locals("workspace", ws)
+						return c.Next()
+					}
+				}
+			}
+		}
+
 		return response.Error(c, "BAD_REQUEST", "Workspace context missing or invalid", nil)
 	}
 }
