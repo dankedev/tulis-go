@@ -59,7 +59,8 @@
             },
             "description": "Returns a paginated list of published posts for the workspace."
           },
-          "response": []
+          "response": [],
+          "name": "List Published Posts"
         },
         {
           "request": {
@@ -91,7 +92,8 @@
             },
             "description": "Returns a single published post by slug or ID."
           },
-          "response": []
+          "response": [],
+          "name": "Get Published Post"
         },
         {
           "request": {
@@ -122,7 +124,8 @@
             },
             "description": "Returns all public taxonomies for the workspace."
           },
-          "response": []
+          "response": [],
+          "name": "List Taxonomies"
         },
         {
           "request": {
@@ -158,7 +161,8 @@
             },
             "description": "Returns all public media for the workspace."
           },
-          "response": []
+          "response": [],
+          "name": "List Media"
         },
         {
           "request": {
@@ -185,7 +189,8 @@
               "raw": "{\n  \"post_id\": \"POST_UUID_HERE\",\n  \"content\": \"Great article!\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\"\n}"
             }
           },
-          "response": []
+          "response": [],
+          "name": "Create Comment"
         },
         {
           "request": {
@@ -230,7 +235,8 @@
             },
             "description": "Lists approved comments for a specific post."
           },
-          "response": []
+          "response": [],
+          "name": "List Post Comments"
         },
         {
           "request": {
@@ -263,7 +269,8 @@
             },
             "description": "Records a page view for analytics (no body required)."
           },
-          "response": []
+          "response": [],
+          "name": "Record Page View"
         },
         {
           "request": {
@@ -296,7 +303,8 @@
             },
             "description": "Generates an XML sitemap for the workspace."
           },
-          "response": []
+          "response": [],
+          "name": "Get Workspace Sitemap"
         },
         {
           "request": {
@@ -328,7 +336,8 @@
             },
             "description": "Returns the auto-generated OG image for a post."
           },
-          "response": []
+          "response": [],
+          "name": "Get Post OG Image"
         }
       ]
     },
@@ -361,7 +370,8 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"name\": \"John Doe\",\n  \"password\": \"strongpassword123\"\n}"
             }
           },
-          "response": []
+          "response": [],
+          "name": "Register Account"
         },
         {
           "request": {
@@ -388,7 +398,8 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"strongpassword123\"\n}"
             }
           },
-          "response": []
+          "response": [],
+          "name": "Login Account"
         },
         {
           "request": {
@@ -413,7 +424,8 @@
             },
             "description": "Verifies a user's email address using the verification token sent via email."
           },
-          "response": []
+          "response": [],
+          "name": "Verify Email"
         },
         {
           "request": {
@@ -440,7 +452,8 @@
               "raw": "{\n  \"email\": \"user@example.com\"\n}"
             }
           },
-          "response": []
+          "response": [],
+          "name": "Forgot Password Request"
         },
         {
           "request": {
@@ -467,7 +480,8 @@
               "raw": "{\n  \"token\": \"RESET_TOKEN_HERE\",\n  \"password\": \"newpassword123\"\n}"
             }
           },
-          "response": []
+          "response": [],
+          "name": "Reset Password"
         },
         {
           "request": {
@@ -495,7 +509,8 @@
               "raw": "{\n  \"email\": \"invited@example.com\",\n  \"name\": \"Invited User\",\n  \"password\": \"strongpassword123\",\n  \"token\": \"INVITATION_TOKEN_HERE\"\n}"
             }
           },
-          "response": []
+          "response": [],
+          "name": "Register by Invitation"
         },
         {
           "request": {
@@ -521,7 +536,8 @@
             },
             "description": "Returns public details of an invitation by token."
           },
-          "response": []
+          "response": [],
+          "name": "Get Invitation Details"
         }
       ]
     },
@@ -553,7 +569,8 @@
             },
             "description": "Redirects to the specified OAuth provider's authorization page."
           },
-          "response": []
+          "response": [],
+          "name": "OAuth Redirect"
         },
         {
           "request": {
@@ -592,7 +609,8 @@
             },
             "description": "Handles the OAuth provider callback and logs/registers the user."
           },
-          "response": []
+          "response": [],
+          "name": "OAuth Callback"
         }
       ]
     },
@@ -617,7 +635,8 @@
             },
             "description": "Checks whether the application has been initialized/set up."
           },
-          "response": []
+          "response": [],
+          "name": "Get Setup Status"
         },
         {
           "request": {
@@ -644,7 +663,8 @@
               "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"adminpassword123\",\n  \"workspace_name\": \"My Site\"\n}"
             }
           },
-          "response": []
+          "response": [],
+          "name": "Run Setup"
         }
       ]
     }

@@ -938,6 +938,42 @@
           },
           "response": [],
           "name": "Delete Post Type"
+        },
+        {
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post-types",
+                ":id"
+              ],
+              "raw": "{{baseUrl}}/api/post-types/:id",
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "POST_TYPE_UUID_HERE",
+                  "description": "Custom Post Type ID"
+                }
+              ]
+            },
+            "description": "Updates a Custom Post Type configuration.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Portfolio Updated\",\n  \"description\": \"Updated project portfolio items\",\n  \"fields\": [\n    {\n      \"name\": \"client_name\",\n      \"label\": \"Client Name\",\n      \"type\": \"text\",\n      \"required\": true\n    }\n  ]\n}"
+            }
+          },
+          "response": [],
+          "name": "Update Post Type"
         }
       ]
     },
