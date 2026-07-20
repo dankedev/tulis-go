@@ -17,6 +17,20 @@ func TenantScoping(wsSvc workspace.WorkspaceService) fiber.Handler {
 			return c.Next()
 		}
 
+		// 0. If workspace_id is already set (e.g. by ApiKeyAuth), resolve the workspace and continue
+		if wsIDVal := c.Locals("workspace_id"); wsIDVal != nil {
+			if wsIDStr, ok := wsIDVal.(string); ok && wsIDStr != "" {
+				wsID, err := uuid.Parse(wsIDStr)
+				if err == nil {
+					ws, err := wsSvc.GetWorkspaceByID(c.Context(), wsID)
+					if err == nil {
+						c.Locals("workspace", ws)
+						return c.Next()
+					}
+				}
+			}
+		}
+
 		// 1. Try to extract workspace ID from X-Workspace-ID header
 		wsIDStr := c.Get("X-Workspace-ID")
 		if wsIDStr != "" {
@@ -44,6 +58,17 @@ func TenantScoping(wsSvc workspace.WorkspaceService) fiber.Handler {
 					c.Locals("workspace", ws)
 					return c.Next()
 				}
+			}
+		}
+
+		// 3. Fallback: use first workspace if available in DB AND accessing via localhost/127.0.0.1
+		if host == "localhost" || host == "127.0.0.1" {
+			workspaces, err := wsSvc.ListAllWorkspaces(c.Context())
+			if err == nil && len(workspaces) > 0 {
+				ws := workspaces[0]
+				c.Locals("workspace_id", ws.ID.String())
+				c.Locals("workspace", ws)
+				return c.Next()
 			}
 		}
 

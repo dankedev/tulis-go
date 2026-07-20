@@ -251,10 +251,10 @@ func (r *postRepository) ListPublic(ctx context.Context, workspaceID uuid.UUID, 
 	var posts []Post
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies").Where("workspace_id = ? AND status = ?", workspaceID, "published")
+	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies").Where("posts.workspace_id = ? AND posts.status = ?", workspaceID, "published")
 
 	if postType != "" {
-		query = query.Where("post_type = ?", postType)
+		query = query.Where("posts.post_type = ?", postType)
 	}
 
 	if taxonomySlug != "" {
