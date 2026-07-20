@@ -240,9 +240,910 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/admin/users:
+    get:
+      description: Mengembalikan daftar semua user (superadmin only)
+      tags:
+      - Superadmin
+      summary: List all users
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: page
+        in: query
+        type: integer
+        required: false
+        description: Page number
+        default: 1
+      - name: per_page
+        in: query
+        type: integer
+        required: false
+        description: Items per page
+        default: 10
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/admin/users/{id}:
+    put:
+      description: Memperbarui detail user (superadmin only)
+      tags:
+      - Superadmin
+      summary: Update user
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: User UUID
+      - name: request
+        in: body
+        required: true
+        description: User update data
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+    delete:
+      description: Menghapus user secara permanen (superadmin only)
+      tags:
+      - Superadmin
+      summary: Delete user
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: User UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+  /api/admin/workspaces:
+    get:
+      description: Mengembalikan daftar semua workspace (superadmin only)
+      tags:
+      - Superadmin
+      summary: List all workspaces
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: page
+        in: query
+        type: integer
+        required: false
+        description: Page number
+        default: 1
+      - name: per_page
+        in: query
+        type: integer
+        required: false
+        description: Items per page
+        default: 10
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/admin/workspaces/{id}:
+    put:
+      description: Memperbarui workspace (superadmin only)
+      tags:
+      - Superadmin
+      summary: Update workspace
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Workspace UUID
+      - name: request
+        in: body
+        required: true
+        description: Workspace update data
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+    delete:
+      description: Menghapus workspace secara permanen (superadmin only)
+      tags:
+      - Superadmin
+      summary: Delete workspace
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Workspace UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+  /api/ai/generate-meta:
+    post:
+      description: Menghasilkan meta deskripsi SEO menggunakan AI
+      tags:
+      - AI
+      summary: Generate SEO meta description
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: AI generate-meta request payload
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/ai/generate-snippets:
+    post:
+      description: Menghasilkan rich snippet menggunakan AI
+      tags:
+      - AI
+      summary: Generate rich snippets
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: AI generate-snippets request payload
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/ai/generate-titles:
+    post:
+      description: Menghasilkan judul posting menggunakan AI
+      tags:
+      - AI
+      summary: Generate title suggestions
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: AI generate-titles request payload
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/ai/suggest-taxonomies:
+    post:
+      description: Menyarankan kategori/tag menggunakan AI
+      tags:
+      - AI
+      summary: Suggest taxonomies
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: AI suggest-taxonomies request payload
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/analytics:
+    get:
+      description: Mengembalikan data analitik untuk workspace (views, visitors, dll)
+      tags:
+      - Analytics (Admin)
+      summary: Get workspace analytics
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: start_date
+        in: query
+        type: string
+        required: false
+        description: Start date (YYYY-MM-DD)
+      - name: end_date
+        in: query
+        type: string
+        required: false
+        description: End date (YYYY-MM-DD)
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/api-keys:
+    get:
+      description: Mengembalikan daftar API key workspace
+      tags:
+      - API Keys
+      summary: List API keys
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+    post:
+      description: Membuat API key baru untuk workspace
+      tags:
+      - API Keys
+      summary: Create API key
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: API key name and permissions
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/api-keys/{id}:
+    put:
+      description: Memperbarui nama atau permission API key
+      tags:
+      - API Keys
+      summary: Update API key
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: API Key UUID
+      - name: request
+        in: body
+        required: true
+        description: Update data
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+    delete:
+      description: Menghapus API key secara permanen
+      tags:
+      - API Keys
+      summary: Delete API key
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: API Key UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+  /api/auth/{provider}:
+    get:
+      description: Memulai OAuth flow dengan provider tertentu (Google, GitHub, dll)
+      tags:
+      - OAuth
+      summary: Initiate OAuth login
+      produces:
+      - application/json
+      parameters:
+      - name: provider
+        in: path
+        type: string
+        required: true
+        description: OAuth provider name (google, github)
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+  /api/auth/{provider}/callback:
+    get:
+      description: Callback handler untuk OAuth provider
+      tags:
+      - OAuth
+      summary: OAuth callback handler
+      produces:
+      - application/json
+      parameters:
+      - name: provider
+        in: path
+        type: string
+        required: true
+        description: OAuth provider name
+      - name: code
+        in: query
+        type: string
+        required: true
+        description: Authorization code from provider
+      - name: state
+        in: query
+        type: string
+        required: false
+        description: State parameter for CSRF protection
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+  /api/collab/lock/{id}:
+    get:
+      description: Memeriksa status lock pada posting
+      tags:
+      - Collaboration
+      summary: Check lock status
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Post UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+    post:
+      description: Mengunci posting untuk diedit secara eksklusif
+      tags:
+      - Collaboration
+      summary: Acquire edit lock
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Post UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/collab/unlock/{id}:
+    post:
+      description: Melepaskan lock pada posting
+      tags:
+      - Collaboration
+      summary: Release edit lock
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Post UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/comments:
+    get:
+      description: Mengembalikan daftar komentar untuk workspace dengan paginasi
+      tags:
+      - Comments (Admin)
+      summary: List all comments
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: status
+        in: query
+        type: string
+        required: false
+        description: Filter by status (approved, pending, spam)
+      - name: page
+        in: query
+        type: integer
+        required: false
+        description: Page number
+        default: 1
+      - name: per_page
+        in: query
+        type: integer
+        required: false
+        description: Items per page
+        default: 10
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/comments/{id}:
+    put:
+      description: Memperbarui status atau konten komentar
+      tags:
+      - Comments (Admin)
+      summary: Update a comment
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Comment UUID
+      - name: request
+        in: body
+        required: true
+        description: Comment update (status, content)
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+    delete:
+      description: Menghapus komentar secara permanen
+      tags:
+      - Comments (Admin)
+      summary: Delete a comment
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Comment UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
   /api/forgot-password:
     post:
       description: Sends password reset link to user's email
+      produces:
+      - application/json
       parameters:
       - description: User email
         in: body
@@ -253,12 +1154,12 @@ paths:
             type: string
           type: object
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -278,17 +1179,19 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
       summary: View invitation details
       tags:
-      - Workspace Invitations
+      - Workspace
   /api/invitations/{token}/accept:
     post:
       description: Joins the workspace using the invitation token
+      produces:
+      - application/json
       parameters:
       - description: Invitation Token
         in: path
@@ -296,7 +1199,7 @@ paths:
         required: true
         type: string
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -305,7 +1208,7 @@ paths:
       - BearerAuth: []
       summary: Accept workspace invitation
       tags:
-      - Workspace Invitations
+      - Workspace
   /api/login:
     post:
       consumes:
@@ -321,17 +1224,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -353,12 +1256,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -367,7 +1270,41 @@ paths:
       - BearerAuth: []
       summary: Get current authenticated user
       tags:
-      - Auth
+      - User
+    put:
+      description: Updates the authenticated user's name and avatar
+      tags:
+      - User
+      summary: Update current user profile
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: request
+        in: body
+        required: true
+        description: Profile update fields
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
   /api/me/password:
     put:
       consumes:
@@ -390,17 +1327,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -409,7 +1346,34 @@ paths:
       - BearerAuth: []
       summary: Change password
       tags:
-      - Users
+      - User
+  /api/me/resend-verification:
+    post:
+      description: Mengirim ulang email verifikasi ke user yang sudah login
+      tags:
+      - User
+      summary: Resend verification email
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
   /api/media:
     get:
       consumes:
@@ -439,12 +1403,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -453,130 +1417,7 @@ paths:
       - BearerAuth: []
       summary: List media library
       tags:
-      - Media
-  /api/media/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Permanently deletes a media item and its file by UUID
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Media UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Delete a media item
-      tags:
-      - Media
-    get:
-      consumes:
-      - application/json
-      description: Returns a single media item metadata by its UUID
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Media UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get media by ID
-      tags:
-      - Media
-    put:
-      consumes:
-      - application/json
-      description: Updates the alt text and caption of a media item by UUID
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Media UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: JSON body containing alt_text and caption
-        in: body
-        name: body
-        required: true
-        schema:
-          additionalProperties:
-            type: string
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update a media item's metadata
-      tags:
-      - Media
+      - Media (Admin)
   /api/media/upload:
     post:
       consumes:
@@ -609,17 +1450,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -629,6 +1470,280 @@ paths:
       summary: Upload a media file
       tags:
       - Media
+  /api/media/upload-via-url:
+    post:
+      description: Upload media dari URL eksternal ke workspace media library
+      tags:
+      - Media (Admin)
+      summary: Upload media via URL
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: Object with 'url' field pointing to the media source
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/media/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Permanently deletes a media item and its file by UUID
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Media UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '404':
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a media item
+      tags:
+      - Media (Admin)
+    get:
+      consumes:
+      - application/json
+      description: Returns a single media item metadata by its UUID
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Media UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '404':
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get media by ID
+      tags:
+      - Media (Admin)
+    put:
+      consumes:
+      - application/json
+      description: Updates the alt text and caption of a media item by UUID
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Media UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: JSON body containing alt_text and caption
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '404':
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a media item's metadata
+      tags:
+      - Media (Admin)
+  /api/membership/subscribe:
+    post:
+      description: Mendaftarkan user ke membership tier tertentu
+      tags:
+      - Membership
+      summary: Subscribe to membership tier
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: Subscription details (tier_id, payment info)
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/membership/tiers:
+    get:
+      description: Mengembalikan daftar membership tier yang tersedia
+      tags:
+      - Membership
+      summary: List membership tiers
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+    post:
+      description: Membuat membership tier baru
+      tags:
+      - Membership
+      summary: Create membership tier
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: Tier details (name, price, benefits)
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
   /api/plugins:
     get:
       consumes:
@@ -649,12 +1764,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -664,6 +1779,316 @@ paths:
       summary: List workspace plugins
       tags:
       - Plugins
+  /api/plugins/importer/csv/import:
+    post:
+      consumes:
+      - application/json
+      description: Spawns a background process to import CSV rows based on field mappings
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: CSV import details and mapping configuration
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain_importer.StartCSVImportReq'
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '401':
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start background CSV import
+      tags:
+      - Importer
+  /api/plugins/importer/csv/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a CSV file, saves it to storage, and extracts its headers
+        for mapping
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: CSV file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '401':
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload and parse CSV headers
+      tags:
+      - Importer
+  /api/plugins/importer/logs:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated list of WXR import logs for the workspace
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List import logs
+      tags:
+      - Importer
+  /api/plugins/importer/logs/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns a single import log by its UUID
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Import log UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '404':
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get import log by ID
+      tags:
+      - Importer
+  /api/plugins/importer/strapi/import:
+    post:
+      consumes:
+      - application/json
+      description: Fetches content from Strapi in the background and saves it to the
+        database
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Strapi import details and field mappings
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain_importer.StartStrapiImportReq'
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '401':
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start background Strapi content import
+      tags:
+      - Importer
+  /api/plugins/importer/strapi/inspect:
+    post:
+      consumes:
+      - application/json
+      description: Fetches sample data from a Strapi endpoint and extracts its schema
+        keys
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Strapi connection details
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain_importer.InspectStrapiReq'
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '401':
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Inspect Strapi schema fields
+      tags:
+      - Importer
+  /api/plugins/importer/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Imports a WordPress WXR (XML) file, creating posts, media, and
+        taxonomies
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: WXR file (.xml)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '401':
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload WordPress WXR file
+      tags:
+      - Importer
   /api/plugins/{id}/settings:
     put:
       consumes:
@@ -694,17 +2119,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -744,17 +2169,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -764,316 +2189,6 @@ paths:
       summary: Toggle plugin enabled state
       tags:
       - Plugins
-  /api/plugins/importer/csv/import:
-    post:
-      consumes:
-      - application/json
-      description: Spawns a background process to import CSV rows based on field mappings
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: CSV import details and mapping configuration
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/domain_importer.StartCSVImportReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Start background CSV import
-      tags:
-      - Importer
-  /api/plugins/importer/csv/upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Uploads a CSV file, saves it to storage, and extracts its headers
-        for mapping
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: CSV file
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Upload and parse CSV headers
-      tags:
-      - Importer
-  /api/plugins/importer/logs:
-    get:
-      consumes:
-      - application/json
-      description: Returns a paginated list of WXR import logs for the workspace
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - default: 1
-        description: Page number
-        in: query
-        name: page
-        type: integer
-      - default: 10
-        description: Items per page
-        in: query
-        name: per_page
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: List import logs
-      tags:
-      - Importer
-  /api/plugins/importer/logs/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Returns a single import log by its UUID
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Import log UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get import log by ID
-      tags:
-      - Importer
-  /api/plugins/importer/strapi/import:
-    post:
-      consumes:
-      - application/json
-      description: Fetches content from Strapi in the background and saves it to the
-        database
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: Strapi import details and field mappings
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/domain_importer.StartStrapiImportReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Start background Strapi content import
-      tags:
-      - Importer
-  /api/plugins/importer/strapi/inspect:
-    post:
-      consumes:
-      - application/json
-      description: Fetches sample data from a Strapi endpoint and extracts its schema
-        keys
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: Strapi connection details
-        in: body
-        name: req
-        required: true
-        schema:
-          $ref: '#/definitions/domain_importer.InspectStrapiReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Inspect Strapi schema fields
-      tags:
-      - Importer
-  /api/plugins/importer/upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Imports a WordPress WXR (XML) file, creating posts, media, and
-        taxonomies
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: WXR file (.xml)
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Upload WordPress WXR file
-      tags:
-      - Importer
   /api/post-types:
     get:
       consumes:
@@ -1093,12 +2208,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -1132,17 +2247,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -1171,17 +2286,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1209,17 +2324,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1266,12 +2381,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -1280,7 +2395,7 @@ paths:
       - BearerAuth: []
       summary: List posts
       tags:
-      - Posts
+      - Posts (Admin)
     post:
       consumes:
       - application/json
@@ -1305,17 +2420,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -1324,7 +2439,7 @@ paths:
       - BearerAuth: []
       summary: Create a new post
       tags:
-      - Posts
+      - Posts (Admin)
   /api/posts/{id}:
     delete:
       consumes:
@@ -1344,17 +2459,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1363,7 +2478,7 @@ paths:
       - BearerAuth: []
       summary: Delete a post
       tags:
-      - Posts
+      - Posts (Admin)
     get:
       consumes:
       - application/json
@@ -1382,17 +2497,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1401,7 +2516,7 @@ paths:
       - BearerAuth: []
       summary: Get post by ID
       tags:
-      - Posts
+      - Posts (Admin)
     put:
       consumes:
       - application/json
@@ -1426,22 +2541,22 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1450,7 +2565,7 @@ paths:
       - BearerAuth: []
       summary: Update a post
       tags:
-      - Posts
+      - Posts (Admin)
   /api/posts/{id}/revisions:
     get:
       consumes:
@@ -1470,12 +2585,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -1484,7 +2599,7 @@ paths:
       - BearerAuth: []
       summary: List post revisions
       tags:
-      - Posts
+      - Posts (Admin)
   /api/posts/{id}/revisions/{revisionId}/restore:
     post:
       consumes:
@@ -1509,22 +2624,22 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1533,7 +2648,7 @@ paths:
       - BearerAuth: []
       summary: Restore a post revision
       tags:
-      - Posts
+      - Posts (Admin)
   /api/register:
     post:
       consumes:
@@ -1552,12 +2667,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -1583,12 +2698,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -1599,6 +2714,8 @@ paths:
   /api/reset-password:
     post:
       description: Resets user password using reset token
+      produces:
+      - application/json
       parameters:
       - description: Token and new password
         in: body
@@ -1609,12 +2726,12 @@ paths:
             type: string
           type: object
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -1622,6 +2739,49 @@ paths:
       summary: Reset password
       tags:
       - Auth
+  /api/setup:
+    post:
+      description: Melakukan setup awal aplikasi (hanya sekali)
+      tags:
+      - Setup
+      summary: Complete initial setup
+      produces:
+      - application/json
+      parameters:
+      - name: request
+        in: body
+        required: true
+        description: Setup data (admin user, workspace)
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/setup/status:
+    get:
+      description: Memeriksa apakah setup awal sudah selesai
+      tags:
+      - Setup
+      summary: Check setup status
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
   /api/taxonomies:
     get:
       consumes:
@@ -1646,12 +2806,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -1660,7 +2820,7 @@ paths:
       - BearerAuth: []
       summary: List taxonomies
       tags:
-      - Taxonomies
+      - Taxonomy (Admin)
     post:
       consumes:
       - application/json
@@ -1685,17 +2845,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -1704,7 +2864,7 @@ paths:
       - BearerAuth: []
       summary: Create a taxonomy
       tags:
-      - Taxonomies
+      - Taxonomy (Admin)
   /api/taxonomies/{id}:
     delete:
       consumes:
@@ -1724,17 +2884,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1743,7 +2903,7 @@ paths:
       - BearerAuth: []
       summary: Delete a taxonomy
       tags:
-      - Taxonomies
+      - Taxonomy (Admin)
     get:
       consumes:
       - application/json
@@ -1762,17 +2922,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1781,7 +2941,7 @@ paths:
       - BearerAuth: []
       summary: Get taxonomy by ID
       tags:
-      - Taxonomies
+      - Taxonomy (Admin)
     put:
       consumes:
       - application/json
@@ -1806,17 +2966,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -1825,255 +2985,12 @@ paths:
       - BearerAuth: []
       summary: Update a taxonomy
       tags:
-      - Taxonomies
-  /api/users/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Returns a single user by their UUID
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: User UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get user by ID
-      tags:
-      - Users
-    put:
-      consumes:
-      - application/json
-      description: Updates the name and avatar URL of the authenticated user (own
-        profile only)
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: User UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Profile update fields
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain_user.UpdateUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "403":
-          description: Forbidden
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update user profile
-      tags:
-      - Users
-  /api/v1/public/media:
-    get:
-      consumes:
-      - application/json
-      description: Returns a paginated list of media items (public, rate-limited)
-      parameters:
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - default: 1
-        description: Page number
-        in: query
-        name: page
-        type: integer
-      - default: 10
-        description: Items per page
-        in: query
-        name: per_page
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List media
-      tags:
-      - Public Media
-  /api/v1/public/posts:
-    get:
-      consumes:
-      - application/json
-      description: Returns a paginated list of published posts for the workspace (public,
-        rate-limited)
-      parameters:
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: Filter by post type
-        in: query
-        name: type
-        type: string
-      - description: Filter by taxonomy slug
-        in: query
-        name: taxonomy
-        type: string
-      - default: published_at desc
-        description: Sort order
-        in: query
-        name: sort
-        type: string
-      - default: 1
-        description: Page number
-        in: query
-        name: page
-        type: integer
-      - default: 10
-        description: Items per page
-        in: query
-        name: per_page
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List published posts
-      tags:
-      - Public Posts
-  /api/v1/public/posts/{slugOrId}:
-    get:
-      consumes:
-      - application/json
-      description: Returns a single published post by slug or ID (public, rate-limited)
-      parameters:
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: Post slug or UUID
-        in: path
-        name: slugOrId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get a published post
-      tags:
-      - Public Posts
-  /api/v1/public/taxonomies:
-    get:
-      consumes:
-      - application/json
-      description: Returns all taxonomies for the workspace (public, rate-limited)
-      parameters:
-      - description: Workspace ID
-        in: header
-        name: X-Workspace-ID
-        required: true
-        type: string
-      - description: Filter by taxonomy type
-        in: query
-        name: type
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List taxonomies
-      tags:
-      - Public Taxonomies
+      - Taxonomy (Admin)
   /api/verify-email:
     get:
       description: Verifies a user's email using verification token
+      produces:
+      - application/json
       parameters:
       - description: Verification Token
         in: query
@@ -2081,12 +2998,12 @@ paths:
         required: true
         type: string
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -2094,6 +3011,168 @@ paths:
       summary: Verify email address
       tags:
       - Auth
+  /api/webhooks:
+    get:
+      description: Mengembalikan daftar webhook workspace
+      tags:
+      - Webhooks
+      summary: List webhooks
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+    post:
+      description: Mendaftarkan webhook baru
+      tags:
+      - Webhooks
+      summary: Create webhook
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: Webhook URL, events, and secret
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/webhooks/{id}:
+    delete:
+      description: Menghapus webhook secara permanen
+      tags:
+      - Webhooks
+      summary: Delete webhook
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Webhook UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
+  /api/webhooks/{id}/logs:
+    get:
+      description: Mengembalikan log pengiriman webhook
+      tags:
+      - Webhooks
+      summary: List webhook delivery logs
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Webhook UUID
+      - name: page
+        in: query
+        type: integer
+        required: false
+        description: Page number
+        default: 1
+      - name: per_page
+        in: query
+        type: integer
+        required: false
+        description: Items per page
+        default: 10
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
   /api/workspaces:
     get:
       consumes:
@@ -2108,12 +3187,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -2142,17 +3221,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             additionalProperties: true
@@ -2181,17 +3260,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -2219,17 +3298,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -2263,17 +3342,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -2283,9 +3362,144 @@ paths:
       summary: Update workspace
       tags:
       - Workspaces
+  /api/workspaces/{id}/broken-links:
+    get:
+      description: Mengembalikan daftar broken link untuk workspace
+      tags:
+      - Link Checker
+      summary: List broken links
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Workspace UUID
+      - name: status
+        in: query
+        type: string
+        required: false
+        description: Filter by status (broken, resolved)
+      - name: page
+        in: query
+        type: integer
+        required: false
+        description: Page number
+        default: 1
+      - name: per_page
+        in: query
+        type: integer
+        required: false
+        description: Items per page
+        default: 10
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /api/workspaces/{id}/broken-links/check:
+    post:
+      description: Memulai pengecekan broken link untuk semua posting di workspace
+      tags:
+      - Link Checker
+      summary: Check all links
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Workspace UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+  /api/workspaces/{id}/broken-links/{linkId}/resolve:
+    post:
+      description: Menandai broken link sebagai resolved
+      tags:
+      - Link Checker
+      summary: Resolve broken link
+      security:
+      - BearerAuth: []
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: Bearer token
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Workspace UUID
+      - name: linkId
+        in: path
+        type: string
+        required: true
+        description: Broken link UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+        '404':
+          description: Not Found
+          schema:
+            type: object
+            additionalProperties: true
   /api/workspaces/{id}/invitations:
     get:
       description: Returns all invitations sent by this workspace
+      produces:
+      - application/json
       parameters:
       - description: Workspace ID
         in: header
@@ -2298,7 +3512,7 @@ paths:
         required: true
         type: string
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -2329,7 +3543,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -2342,6 +3556,8 @@ paths:
   /api/workspaces/{id}/invitations/{inviteId}:
     delete:
       description: Cancels a pending invitation
+      produces:
+      - application/json
       parameters:
       - description: Workspace ID
         in: header
@@ -2359,7 +3575,7 @@ paths:
         required: true
         type: string
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -2393,12 +3609,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
@@ -2437,17 +3653,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -2486,17 +3702,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -2540,17 +3756,17 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             additionalProperties: true
@@ -2560,4 +3776,293 @@ paths:
       summary: Update member role
       tags:
       - Workspace Members
-swagger: "2.0"
+  /v1/analytics/view/{id}:
+    post:
+      description: Mencatat page view untuk posting (public, rate-limited)
+      tags:
+      - Analytics (Public)
+      summary: Record page view
+      produces:
+      - application/json
+      parameters:
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Post UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /v1/comments:
+    post:
+      description: Menyimpan komentar baru untuk posting yang dipublikasikan
+      tags:
+      - Comments (Public)
+      summary: Submit a comment
+      produces:
+      - application/json
+      parameters:
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: request
+        in: body
+        required: true
+        description: Comment data (post_id, author_name, content, etc.)
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /v1/media:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated list of media items (public, rate-limited)
+      parameters:
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List media
+      tags:
+      - Media (Public)
+  /v1/og-image/{id}:
+    get:
+      description: Mengembalikan OG image yang digenerate untuk posting
+      tags:
+      - SEO
+      summary: Get generated OG image
+      produces:
+      - application/json
+      parameters:
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Post UUID
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+  /v1/posts:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated list of published posts for the workspace (public,
+        rate-limited)
+      parameters:
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Filter by post type
+        in: query
+        name: type
+        type: string
+      - description: Filter by taxonomy slug
+        in: query
+        name: taxonomy
+        type: string
+      - default: published_at desc
+        description: Sort order
+        in: query
+        name: sort
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List published posts
+      tags:
+      - Posts (Public)
+  /v1/posts/{post_id}/comments:
+    get:
+      description: Mengembalikan daftar komentar yang disetujui untuk sebuah posting
+      tags:
+      - Comments (Public)
+      summary: List comments for a post
+      produces:
+      - application/json
+      parameters:
+      - name: X-Workspace-ID
+        in: header
+        type: string
+        required: true
+        description: Workspace ID
+      - name: post_id
+        in: path
+        type: string
+        required: true
+        description: Post UUID or slug
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            additionalProperties: true
+  /v1/posts/{slugOrId}:
+    get:
+      consumes:
+      - application/json
+      description: Returns a single published post by slug or ID (public, rate-limited)
+      parameters:
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Post slug or UUID
+        in: path
+        name: slugOrId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        '404':
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get a published post
+      tags:
+      - Posts (Public)
+  /v1/taxonomies:
+    get:
+      consumes:
+      - application/json
+      description: Returns all taxonomies for the workspace (public, rate-limited)
+      parameters:
+      - description: Workspace ID
+        in: header
+        name: X-Workspace-ID
+        required: true
+        type: string
+      - description: Filter by taxonomy type
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        '400':
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List taxonomies
+      tags:
+      - Taxonomy (Public)
+  /v1/workspaces/{id}/sitemap:
+    get:
+      description: Mengembalikan sitemap XML untuk workspace
+      tags:
+      - SEO
+      summary: Generate workspace sitemap
+      produces:
+      - application/xml
+      parameters:
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Workspace ID/slug
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+            additionalProperties: true
+swagger: '2.0'
