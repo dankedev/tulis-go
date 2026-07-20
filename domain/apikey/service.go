@@ -104,7 +104,7 @@ func generateRawKey() (rawKey, prefix string, err error) {
 		return "", "", err
 	}
 	rawKey = "tulis_sk_" + hex.EncodeToString(b)
-	prefix = rawKey[:16] // "tulis_sk_a1b2c3"
+	prefix = rawKey[:12] // "tulis_sk_a1b2" — fits varchar(12) column
 	return rawKey, prefix, nil
 }
 
