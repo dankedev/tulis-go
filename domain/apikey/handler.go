@@ -46,7 +46,7 @@ func (h *Handler) Generate(c *fiber.Ctx) error {
 
 	result, err := h.svc.Generate(c.Context(), workspaceID, req)
 	if err != nil {
-		return response.Error(c, "BAD_REQUEST", "Failed to generate API key", nil)
+		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
 
 	return response.Success(c, result, "API key generated — copy it now, it won't be shown again")
