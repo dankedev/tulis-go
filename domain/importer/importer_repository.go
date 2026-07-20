@@ -61,6 +61,7 @@ func (r *importerRepository) UpdateImportLog(ctx context.Context, log *ImportLog
 
 type postRepoHelper interface {
 	Create(ctx context.Context, post *post.Post) error
+	Update(ctx context.Context, post *post.Post) error
 	FindByID(ctx context.Context, id uuid.UUID) (*post.Post, error)
 	FindBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*post.Post, error)
 	AssignTaxonomies(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error

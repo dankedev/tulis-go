@@ -1675,8 +1675,9 @@ func (s *importerService) ImportStrapiBackground(ctx context.Context, workspaceI
 
 // ImportMarkdown imports a zip of markdown files as posts with folder-based categories.
 type ImportMarkdownOpts struct {
-	PostType      string
-	SkipExisting  bool
+	PostType         string
+	SkipExisting     bool
+	OverwriteExisting bool
 }
 
 func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, _ string, opts ImportMarkdownOpts) (*ImportLog, error) {
@@ -1747,19 +1748,7 @@ func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, autho
 
 		slug := parseMdSlug(zf.Name, title)
 
-		// Skip duplicate slugs only when opted in
-		existingPost, _ := s.postRepo.FindBySlug(ctx, workspaceID, slug)
-		if existingPost != nil {
-			if opts.SkipExisting {
-				result.SkippedCount++
-				errorsList = append(errorsList, fmt.Sprintf("skipped %s: slug '%s' already exists", zf.Name, slug))
-				continue
-			}
-			// Append random suffix to avoid collision
-			slug = slug + "-" + uuid.New().String()[:8]
-		}
-
-		// Nested folder → hierarchy of categories
+		// Nested folder → hierarchy of categories (build before slug check for overwrite)
 		var categoryIDs []uuid.UUID
 		if dir != "." && dir != "" {
 			parts := strings.Split(dir, "/")
@@ -1819,6 +1808,34 @@ func (s *importerService) ImportMarkdown(ctx context.Context, workspaceID, autho
 				categoryIDs = append(categoryIDs, catID)
 				parentID = catID
 			}
+		}
+
+		// Handle existing slug
+		existingPost, _ := s.postRepo.FindBySlug(ctx, workspaceID, slug)
+		if existingPost != nil {
+			if opts.OverwriteExisting {
+				existingPost.Title = title
+				existingPost.Content = mdBody
+				now := time.Now()
+				existingPost.EditedAt = &now
+				if err := s.postRepo.Update(ctx, existingPost); err != nil {
+					errorsList = append(errorsList, fmt.Sprintf("failed to update post '%s': %v", title, err))
+					result.SkippedCount++
+					continue
+				}
+				result.PostsCount++
+				if len(categoryIDs) > 0 {
+					lowest := categoryIDs[len(categoryIDs)-1]
+					_ = s.postRepo.AssignTaxonomies(ctx, existingPost.ID, []uuid.UUID{lowest})
+				}
+				continue
+			} else if opts.SkipExisting {
+				result.SkippedCount++
+				errorsList = append(errorsList, fmt.Sprintf("skipped %s: slug '%s' already exists", zf.Name, slug))
+				continue
+			}
+			// Neither skip nor overwrite → append random suffix
+			slug = slug + "-" + uuid.New().String()[:8]
 		}
 
 		postType := opts.PostType

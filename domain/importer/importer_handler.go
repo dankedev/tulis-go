@@ -574,10 +574,12 @@ func (h *ImporterHandler) ImportMarkdown(c *fiber.Ctx) error {
 		postType = "post"
 	}
 	skipExisting := c.FormValue("skip_existing") == "true"
+	overwriteExisting := c.FormValue("overwrite_existing") == "true"
 
 	opts := ImportMarkdownOpts{
-		PostType:     postType,
-		SkipExisting: skipExisting,
+		PostType:         postType,
+		SkipExisting:     skipExisting,
+		OverwriteExisting: overwriteExisting,
 	}
 
 	importLog, err := h.svc.ImportMarkdown(c.Context(), workspaceID, authorID, f, fileHeader.Filename, opts)

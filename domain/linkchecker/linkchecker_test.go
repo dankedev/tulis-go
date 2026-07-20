@@ -19,33 +19,56 @@ type testPostRepo struct {
 	posts []post.Post
 }
 
-func (t *testPostRepo) FindByID(ctx context.Context, id uuid.UUID) (*post.Post, error) { return nil, nil }
+// UpdatePostType implements [post.PostRepository].
+func (t *testPostRepo) UpdatePostType(ctx context.Context, cpt *post.PostType) error {
+	panic("unimplemented")
+}
+
+func (t *testPostRepo) FindByID(ctx context.Context, id uuid.UUID) (*post.Post, error) {
+	return nil, nil
+}
 func (t *testPostRepo) FindBySlug(ctx context.Context, wsID uuid.UUID, slug string) (*post.Post, error) {
 	return nil, nil
 }
-func (t *testPostRepo) Update(ctx context.Context, p *post.Post) error { return nil }
-func (t *testPostRepo) Delete(ctx context.Context, id uuid.UUID) error { return nil }
-func (t *testPostRepo) Create(ctx context.Context, p *post.Post) error { return nil }
+func (t *testPostRepo) Update(ctx context.Context, p *post.Post) error               { return nil }
+func (t *testPostRepo) Delete(ctx context.Context, id uuid.UUID) error               { return nil }
+func (t *testPostRepo) Create(ctx context.Context, p *post.Post) error               { return nil }
 func (t *testPostRepo) CreatePostType(ctx context.Context, cpt *post.PostType) error { return nil }
-func (t *testPostRepo) FindPostTypeByID(ctx context.Context, id uuid.UUID) (*post.PostType, error) { return nil, nil }
+func (t *testPostRepo) FindPostTypeByID(ctx context.Context, id uuid.UUID) (*post.PostType, error) {
+	return nil, nil
+}
 func (t *testPostRepo) FindPostTypeBySlug(ctx context.Context, wsID uuid.UUID, slug string) (*post.PostType, error) {
 	return nil, nil
 }
-func (t *testPostRepo) ListPostTypes(ctx context.Context, wsID uuid.UUID) ([]post.PostType, error) { return nil, nil }
-func (t *testPostRepo) DeletePostType(ctx context.Context, id uuid.UUID) error { return nil }
+func (t *testPostRepo) ListPostTypes(ctx context.Context, wsID uuid.UUID) ([]post.PostType, error) {
+	return nil, nil
+}
+func (t *testPostRepo) DeletePostType(ctx context.Context, id uuid.UUID) error         { return nil }
 func (t *testPostRepo) CreateRevision(ctx context.Context, r *post.PostRevision) error { return nil }
-func (t *testPostRepo) ListRevisions(ctx context.Context, postID uuid.UUID) ([]post.PostRevision, error) { return nil, nil }
-func (t *testPostRepo) FindRevisionByID(ctx context.Context, id uuid.UUID) (*post.PostRevision, error) { return nil, nil }
+func (t *testPostRepo) ListRevisions(ctx context.Context, postID uuid.UUID) ([]post.PostRevision, error) {
+	return nil, nil
+}
+func (t *testPostRepo) FindRevisionByID(ctx context.Context, id uuid.UUID) (*post.PostRevision, error) {
+	return nil, nil
+}
 func (t *testPostRepo) CreateTaxonomy(ctx context.Context, tx *post.Taxonomy) error { return nil }
-func (t *testPostRepo) FindTaxonomyByID(ctx context.Context, id uuid.UUID) (*post.Taxonomy, error) { return nil, nil }
+func (t *testPostRepo) FindTaxonomyByID(ctx context.Context, id uuid.UUID) (*post.Taxonomy, error) {
+	return nil, nil
+}
 func (t *testPostRepo) FindTaxonomyBySlug(ctx context.Context, wsID uuid.UUID, slug, taxType string) (*post.Taxonomy, error) {
 	return nil, nil
 }
 func (t *testPostRepo) UpdateTaxonomy(ctx context.Context, tx *post.Taxonomy) error { return nil }
-func (t *testPostRepo) DeleteTaxonomy(ctx context.Context, id uuid.UUID) error { return nil }
-func (t *testPostRepo) ListTaxonomies(ctx context.Context, wsID uuid.UUID, taxType string) ([]post.Taxonomy, error) { return nil, nil }
-func (t *testPostRepo) AssignTaxonomies(ctx context.Context, postID uuid.UUID, ids []uuid.UUID) error { return nil }
-func (t *testPostRepo) GetPostTaxonomies(ctx context.Context, postID uuid.UUID) ([]post.Taxonomy, error) { return nil, nil }
+func (t *testPostRepo) DeleteTaxonomy(ctx context.Context, id uuid.UUID) error      { return nil }
+func (t *testPostRepo) ListTaxonomies(ctx context.Context, wsID uuid.UUID, taxType string) ([]post.Taxonomy, error) {
+	return nil, nil
+}
+func (t *testPostRepo) AssignTaxonomies(ctx context.Context, postID uuid.UUID, ids []uuid.UUID) error {
+	return nil
+}
+func (t *testPostRepo) GetPostTaxonomies(ctx context.Context, postID uuid.UUID) ([]post.Taxonomy, error) {
+	return nil, nil
+}
 func (t *testPostRepo) ListPublic(ctx context.Context, wsID uuid.UUID, postType, taxonomySlug, sortBy string, limit, offset int) ([]post.Post, int64, error) {
 	return nil, 0, nil
 }
