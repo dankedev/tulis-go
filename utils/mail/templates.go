@@ -342,3 +342,14 @@ func GetBrokenLinkAlertEmail(name string, count int, frontURL string) string {
 	`, name, count, frontURL)
 	return getLayout("Peringatan Tautan Rusak", content)
 }
+
+// GetNotificationEmailTemplate returns general notification email content.
+func GetNotificationEmailTemplate(title, message string) string {
+	content := fmt.Sprintf(`
+		<div class="badge">Notifikasi Tulis CMS</div>
+		<h2>%s</h2>
+		<p>%s</p>
+	`, title, strings.ReplaceAll(message, "\n", "<br>"))
+	return getLayout(title, content)
+}
+

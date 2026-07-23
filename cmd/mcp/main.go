@@ -84,10 +84,11 @@ type toolContent struct {
 
 // Server state
 type server struct {
-	name    string
-	version string
-	apiURL  string
-	apiKey  string
+	name              string
+	version           string
+	apiURL            string
+	apiKey            string
+	activeWorkspaceID string
 }
 
 var srv *server
@@ -257,6 +258,43 @@ func handleToolsList(req jsonRPCRequest) {
 				Required: []string{"file_url"},
 			},
 		},
+		{
+			Name:        "tulis_list_workspaces",
+			Description: "List all workspaces accessible to the authenticated user.",
+			InputSchema: inputSchema{
+				Type:       "object",
+				Properties: map[string]property{},
+			},
+		},
+		{
+			Name:        "tulis_get_current_workspace",
+			Description: "Get details or ID of the currently active workspace session in MCP.",
+			InputSchema: inputSchema{
+				Type:       "object",
+				Properties: map[string]property{},
+			},
+		},
+		{
+			Name:        "tulis_switch_workspace",
+			Description: "Switch active workspace context for subsequent MCP API requests.",
+			InputSchema: inputSchema{
+				Type: "object",
+				Properties: map[string]property{
+					"workspace_id": {Type: "string", Description: "Workspace UUID to switch to (required)"},
+				},
+				Required: []string{"workspace_id"},
+			},
+		},
+		{
+			Name:        "tulis_list_workspace_members",
+			Description: "List members and their roles for the current active workspace or specified workspace.",
+			InputSchema: inputSchema{
+				Type: "object",
+				Properties: map[string]property{
+					"workspace_id": {Type: "string", Description: "Optional workspace UUID. If omitted, uses active workspace context."},
+				},
+			},
+		},
 	}
 	send(req.ID, map[string]any{"tools": tools})
 }
@@ -285,6 +323,14 @@ func handleToolsCall(req jsonRPCRequest) {
 		result = callCreateTaxonomy(params.Arguments)
 	case "tulis_upload_media":
 		result = callUploadMedia(params.Arguments)
+	case "tulis_list_workspaces":
+		result = callListWorkspaces(params.Arguments)
+	case "tulis_get_current_workspace":
+		result = callGetCurrentWorkspace(params.Arguments)
+	case "tulis_switch_workspace":
+		result = callSwitchWorkspace(params.Arguments)
+	case "tulis_list_workspace_members":
+		result = callListWorkspaceMembers(params.Arguments)
 	default:
 		sendError(req.ID, -32602, "Unknown tool: "+params.Name)
 		return

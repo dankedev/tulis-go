@@ -19,6 +19,7 @@ import (
 	"github.com/dankedev/tulis-go/domain/linkchecker"
 	"github.com/dankedev/tulis-go/domain/media"
 	"github.com/dankedev/tulis-go/domain/membership"
+	"github.com/dankedev/tulis-go/domain/notification"
 	"github.com/dankedev/tulis-go/domain/plugin"
 	"github.com/dankedev/tulis-go/domain/post"
 	"github.com/dankedev/tulis-go/domain/setup"
@@ -160,6 +161,12 @@ func SetupApp() *fiber.App {
 		sitemapHandler := post.NewSitemapHandler(postSvc)
 		ogImageHandler := post.NewOGImageHandler(postSvc)
 
+		// Initialize Notification & Telegram Bot domain
+		notificationRepo := notification.NewRepository(config.DB)
+		telegramBotSvc := notification.NewTelegramBotService(notificationRepo, config.DB, postRepo, wsRepo)
+		notificationSvc := notification.NewNotificationService(notificationRepo, config.DB, telegramBotSvc, userRepo)
+		notificationHandler := notification.NewNotificationHandler(notificationSvc, telegramBotSvc, notificationRepo)
+
 		// Serve static uploads
 		app.Static("/uploads", "./uploads")
 
@@ -225,6 +232,7 @@ func SetupApp() *fiber.App {
 		routes.RegisterAnalyticsRoutes(v1PublicApi, contentGroup, analyticsHandler)
 		routes.RegisterMembershipRoutes(contentGroup, membershipHandler)
 		routes.RegisterCollabRoutes(contentGroup, collabHandler)
+		routes.RegisterNotificationRoutes(api, tenantGroup, editorGroup, notificationHandler)
 
 		// Sitemap endpoint (public, per workspace)
 		v1PublicApi.Get("/workspaces/:id/sitemap", sitemapHandler.GetSitemap)
@@ -276,6 +284,10 @@ func main() {
 		&membership.SubscriptionTier{},
 		&membership.UserSubscription{},
 		&collab.ContentLock{},
+		&notification.NotificationPreference{},
+		&notification.TelegramUserBinding{},
+		&notification.TelegramBotConfig{},
+		&notification.NotificationLog{},
 	)
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)

@@ -28,6 +28,9 @@ func apiCall(method, path string, body any) ([]byte, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Key", srv.apiKey)
+	if srv.activeWorkspaceID != "" {
+		req.Header.Set("X-Workspace-ID", srv.activeWorkspaceID)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -202,6 +205,60 @@ func callUploadMedia(args json.RawMessage) toolResult {
 	json.Unmarshal(args, &params)
 
 	data, err := apiCall("POST", "/media/upload-via-url", params)
+	if err != nil {
+		return textResult(fmt.Sprintf("Error: %v", err))
+	}
+
+	var pretty bytes.Buffer
+	json.Indent(&pretty, data, "", "  ")
+	return textResult(pretty.String())
+}
+
+func callListWorkspaces(args json.RawMessage) toolResult {
+	data, err := apiCall("GET", "/workspaces", nil)
+	if err != nil {
+		return textResult(fmt.Sprintf("Error: %v", err))
+	}
+
+	var pretty bytes.Buffer
+	json.Indent(&pretty, data, "", "  ")
+	return textResult(pretty.String())
+}
+
+func callGetCurrentWorkspace(args json.RawMessage) toolResult {
+	if srv.activeWorkspaceID == "" {
+		return textResult(`{"active_workspace_id": null, "message": "No active workspace explicit override set. Uses default workspace from API key."}`)
+	}
+	return textResult(fmt.Sprintf(`{"active_workspace_id": "%s"}`, srv.activeWorkspaceID))
+}
+
+func callSwitchWorkspace(args json.RawMessage) toolResult {
+	var params map[string]any
+	json.Unmarshal(args, &params)
+
+	wsID, ok := params["workspace_id"].(string)
+	if !ok || strings.TrimSpace(wsID) == "" {
+		return textResult("Error: workspace_id is required")
+	}
+
+	srv.activeWorkspaceID = strings.TrimSpace(wsID)
+	return textResult(fmt.Sprintf(`{"status": "success", "message": "Active workspace switched to %s", "active_workspace_id": "%s"}`, srv.activeWorkspaceID, srv.activeWorkspaceID))
+}
+
+func callListWorkspaceMembers(args json.RawMessage) toolResult {
+	var params map[string]any
+	json.Unmarshal(args, &params)
+
+	wsID := srv.activeWorkspaceID
+	if v, ok := params["workspace_id"].(string); ok && strings.TrimSpace(v) != "" {
+		wsID = strings.TrimSpace(v)
+	}
+
+	if wsID == "" {
+		return textResult("Error: workspace_id is required or active workspace must be set using tulis_switch_workspace")
+	}
+
+	data, err := apiCall("GET", "/workspaces/"+wsID+"/members", nil)
 	if err != nil {
 		return textResult(fmt.Sprintf("Error: %v", err))
 	}
