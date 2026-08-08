@@ -80,6 +80,49 @@ type importSession struct {
 	urlMap      map[string]string
 	taxMap      map[string]uuid.UUID
 	log         *ImportLog
+	cptSlugs    map[string]bool // cache of valid custom post type slugs for this workspace
+}
+
+func (s *importSession) knownCPTSlug(slug string) bool {
+	if s.cptSlugs == nil {
+		return false
+	}
+	return s.cptSlugs[slug]
+}
+
+// normalizePostType resolves an incoming post type slug against the workspace's
+// registered custom post types. The built-in "post" and "page" always pass
+// through. Any other value that is not a known CPT for this workspace is
+// silently mapped to "post" so that importers (WXR/CSV/Strapi) never write
+// unregistered strings like "article" into posts.post_type.
+func (s *importerService) normalizePostType(ctx context.Context, session *importSession, raw string) string {
+	pt := strings.ToLower(strings.TrimSpace(raw))
+	if pt == "" {
+		return "post"
+	}
+	if pt == "post" || pt == "page" {
+		return pt
+	}
+	if session.knownCPTSlug(pt) {
+		return pt
+	}
+	return "post"
+}
+
+// loadCPTSlugs populates session.cptSlugs from the workspace's registered
+// custom post types. Called once at the start of each import.
+func (s *importerService) loadCPTSlugs(ctx context.Context, session *importSession) {
+	if session.cptSlugs != nil {
+		return
+	}
+	session.cptSlugs = make(map[string]bool)
+	types, err := s.postRepo.ListPostTypes(ctx, session.workspaceID)
+	if err != nil {
+		return
+	}
+	for _, t := range types {
+		session.cptSlugs[t.Slug] = true
+	}
 }
 
 func (s *importerService) ImportWXR(ctx context.Context, workspaceID, authorID uuid.UUID, file multipart.File, filename string) (*ImportLog, error) {
@@ -351,6 +394,7 @@ func (s *importerService) mimeToExt(mime string) string {
 }
 
 func (s *importerService) importPosts(ctx context.Context, items []WXRItem, session *importSession) error {
+	s.loadCPTSlugs(ctx, session)
 	for _, item := range items {
 		if item.PostType == "attachment" || item.PostType == "nav_menu_item" {
 			continue
@@ -402,10 +446,7 @@ func (s *importerService) importPosts(ctx context.Context, items []WXRItem, sess
 		content := s.transformContent(item.Content, session)
 		excerpt := s.transformContent(item.Excerpt, session)
 
-		postType := item.PostType
-		if postType == "" {
-			postType = "post"
-		}
+		postType := s.normalizePostType(ctx, session, item.PostType)
 
 		p := &post.Post{
 			ID:           uuid.New(),
@@ -1077,6 +1118,27 @@ func (s *importerService) ImportCSVBackground(ctx context.Context, workspaceID, 
 		return row[idx]
 	}
 
+	// Load workspace CPT slugs once for normalization of unknown post types.
+	cptSlugs := map[string]bool{}
+	if types, err := s.postRepo.ListPostTypes(bgCtx, workspaceID); err == nil {
+		for _, t := range types {
+			cptSlugs[t.Slug] = true
+		}
+	}
+	normalizePostType := func(raw string) string {
+		pt := strings.ToLower(strings.TrimSpace(raw))
+		if pt == "" {
+			return defaultPostType
+		}
+		if pt == "post" || pt == "page" {
+			return pt
+		}
+		if cptSlugs[pt] {
+			return pt
+		}
+		return "post"
+	}
+
 	// Process each row
 	for rowIndex := 1; rowIndex < len(records); rowIndex++ {
 		row := records[rowIndex]
@@ -1095,7 +1157,6 @@ func (s *importerService) ImportCSVBackground(ctx context.Context, workspaceID, 
 		excerpt := getVal(row, "excerpt")
 		slug := getVal(row, "slug")
 		status := getVal(row, "status")
-		postType := getVal(row, "post_type")
 		publishedAtStr := getVal(row, "published_at")
 		featureImageCol := getVal(row, "feature_image")
 
@@ -1109,12 +1170,7 @@ func (s *importerService) ImportCSVBackground(ctx context.Context, workspaceID, 
 			status = "draft"
 		}
 
-		if postType == "" {
-			postType = defaultPostType
-		}
-		if postType == "" {
-			postType = "post"
-		}
+		postType := normalizePostType(getVal(row, "post_type"))
 
 		if slug == "" {
 			slug = helpers.Slugify(title)
@@ -1349,6 +1405,27 @@ func (s *importerService) ImportStrapiBackground(ctx context.Context, workspaceI
 	result := ImportResult{}
 	var errorsList []string
 
+	// Load workspace CPT slugs once for normalization of unknown post types.
+	cptSlugs := map[string]bool{}
+	if types, err := s.postRepo.ListPostTypes(bgCtx, workspaceID); err == nil {
+		for _, t := range types {
+			cptSlugs[t.Slug] = true
+		}
+	}
+	normalizePostType := func(raw string) string {
+		pt := strings.ToLower(strings.TrimSpace(raw))
+		if pt == "" {
+			return defaultPostType
+		}
+		if pt == "post" || pt == "page" {
+			return pt
+		}
+		if cptSlugs[pt] {
+			return pt
+		}
+		return "post"
+	}
+
 	strapiURL := strings.TrimSuffix(urlStr, "/")
 	endpoint := collectionType
 	if !strings.HasPrefix(endpoint, "/") {
@@ -1516,9 +1593,9 @@ func (s *importerService) ImportStrapiBackground(ctx context.Context, workspaceI
 			}
 
 			postTypeVal := getVal(itemMap, "post_type")
-			postType := ""
+			postTypeRaw := ""
 			if postTypeVal != nil {
-				postType = strings.ToLower(fmt.Sprintf("%v", postTypeVal))
+				postTypeRaw = fmt.Sprintf("%v", postTypeVal)
 			}
 
 			publishedAtVal := getVal(itemMap, "published_at")
@@ -1539,12 +1616,7 @@ func (s *importerService) ImportStrapiBackground(ctx context.Context, workspaceI
 				status = "draft"
 			}
 
-			if postType == "" {
-				postType = defaultPostType
-			}
-			if postType == "" {
-				postType = "post"
-			}
+			postType := normalizePostType(postTypeRaw)
 
 			if slug == "" {
 				slug = helpers.Slugify(title)

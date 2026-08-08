@@ -68,6 +68,7 @@ type postRepoHelper interface {
 	CreateTaxonomy(ctx context.Context, taxonomy *post.Taxonomy) error
 	FindTaxonomyBySlug(ctx context.Context, workspaceID uuid.UUID, slug string, taxType string) (*post.Taxonomy, error)
 	CreateRevision(ctx context.Context, revision *post.PostRevision) error
+	ListPostTypes(ctx context.Context, workspaceID uuid.UUID) ([]post.PostType, error)
 }
 
 type mediaRepoHelper interface {
