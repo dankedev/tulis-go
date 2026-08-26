@@ -17,6 +17,7 @@ import (
 	"github.com/dankedev/tulis-go/domain/comment"
 	"github.com/dankedev/tulis-go/domain/importer"
 	"github.com/dankedev/tulis-go/domain/linkchecker"
+	"github.com/dankedev/tulis-go/domain/mcp"
 	"github.com/dankedev/tulis-go/domain/media"
 	"github.com/dankedev/tulis-go/domain/membership"
 	"github.com/dankedev/tulis-go/domain/notification"
@@ -233,6 +234,11 @@ func SetupApp() *fiber.App {
 		routes.RegisterMembershipRoutes(contentGroup, membershipHandler)
 		routes.RegisterCollabRoutes(contentGroup, collabHandler)
 		routes.RegisterNotificationRoutes(api, tenantGroup, editorGroup, notificationHandler)
+
+		// Initialize Remote MCP (Streamable HTTP & SSE) domain
+		mcpSvc := mcp.NewService(postSvc, wsSvc, mediaSvc)
+		mcpHandler := mcp.NewHandler(mcpSvc)
+		routes.RegisterMCPRoutes(app, mcpHandler, apiKeySvc)
 
 		// Sitemap endpoint (public, per workspace)
 		v1PublicApi.Get("/workspaces/:id/sitemap", sitemapHandler.GetSitemap)
