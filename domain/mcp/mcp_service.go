@@ -257,7 +257,12 @@ func (s *service) HandleRequest(ctx context.Context, req JSONRPCRequest, current
 		}
 		resp.Result = s.executeTool(ctx, params.Name, params.Arguments, currentWorkspaceID, userID)
 	default:
-		resp.Error = &RPCError{Code: -32601, Message: "Method not found: " + req.Method}
+		// Fallback: Some clients/gateways call tool names directly as JSON-RPC methods (e.g. method: "tulis_list_posts")
+		if strings.HasPrefix(req.Method, "tulis_") {
+			resp.Result = s.executeTool(ctx, req.Method, req.Params, currentWorkspaceID, userID)
+		} else {
+			resp.Error = &RPCError{Code: -32601, Message: "Method not found: " + req.Method}
+		}
 	}
 
 	return resp

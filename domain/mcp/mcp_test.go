@@ -176,3 +176,24 @@ func TestMCPHandlePostHTTP(t *testing.T) {
 		t.Fatalf("unexpected error response: %v", jsonResp.Error)
 	}
 }
+
+func TestMCPDirectMethodCall(t *testing.T) {
+	_, svc, _, wsID, userID := setupTestMCP(t)
+
+	// Direct call with method name "tulis_list_posts"
+	req := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      5,
+		Method:  "tulis_list_posts",
+		Params:  json.RawMessage(`{}`),
+	}
+
+	resp := svc.HandleRequest(context.Background(), req, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("expected direct method call to succeed, got error: %v", resp.Error)
+	}
+	toolResult, ok := resp.Result.(mcp.ToolResult)
+	if !ok || toolResult.IsError {
+		t.Fatalf("expected successful ToolResult, got %+v", resp.Result)
+	}
+}
