@@ -15,6 +15,7 @@ package post
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/dankedev/tulis-go/domain/webhook"
 	"github.com/dankedev/tulis-go/domain/workspace"
@@ -287,10 +288,21 @@ func (h *PostHandler) Delete(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Summary List posts
+// @Description Returns paginated posts for the workspace
+// @Tags Posts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
 // @Param Authorization header string true "Bearer token"
 // @Param X-Workspace-ID header string true "Workspace ID"
 // @Param type query string false "Filter by post type"
 // @Param status query string false "Filter by status"
+// @Param search query string false "Filter by title search"
+// @Param author query string false "Filter by author ID"
+// @Param category query string false "Filter by category ID or slug"
+// @Param date_start query string false "Filter by start date (YYYY-MM-DD)"
+// @Param date_end query string false "Filter by end date (YYYY-MM-DD)"
 // @Param page query int false "Page number" default(1)
 // @Param per_page query int false "Items per page" default(10)
 // @Success 200 {object} map[string]interface{}
@@ -307,15 +319,53 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 	}
 
 	var authorID *uuid.UUID
+	authorStr := c.Query("author", "")
+	if authorStr != "" {
+		if aID, err := uuid.Parse(authorStr); err == nil {
+			authorID = &aID
+		}
+	}
 
 	postType := c.Query("type", "")
 	status := c.Query("status", "")
 	search := c.Query("search", "")
+	category := c.Query("category", "")
+
+	var startDate *time.Time
+	dateStartStr := c.Query("date_start", "")
+	if dateStartStr != "" {
+		if t, err := time.Parse("2006-01-02", dateStartStr); err == nil {
+			startDate = &t
+		} else if t, err := time.Parse(time.RFC3339, dateStartStr); err == nil {
+			startDate = &t
+		}
+	}
+
+	var endDate *time.Time
+	dateEndStr := c.Query("date_end", "")
+	if dateEndStr != "" {
+		if t, err := time.Parse("2006-01-02", dateEndStr); err == nil {
+			end := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, t.Location())
+			endDate = &end
+		} else if t, err := time.Parse(time.RFC3339, dateEndStr); err == nil {
+			endDate = &t
+		}
+	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "10"))
 
-	posts, total, err := h.svc.ListPosts(c.Context(), workspaceID, postType, status, search, authorID, page, perPage)
+	filter := PostFilter{
+		PostType:  postType,
+		Status:    status,
+		Search:    search,
+		AuthorID:  authorID,
+		Category:  category,
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	posts, total, err := h.svc.ListPosts(c.Context(), workspaceID, filter, page, perPage)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}

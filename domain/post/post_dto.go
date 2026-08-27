@@ -1,6 +1,21 @@
 package post
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type PostFilter struct {
+	PostType  string     `json:"post_type"`
+	Status    string     `json:"status"`
+	Search    string     `json:"search"`
+	AuthorID  *uuid.UUID `json:"author_id"`
+	Category  string     `json:"category"`
+	StartDate *time.Time `json:"start_date"`
+	EndDate   *time.Time `json:"end_date"`
+}
+
 
 type CreatePostReq struct {
 	Title        string                 `json:"title"`

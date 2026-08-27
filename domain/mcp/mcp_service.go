@@ -293,7 +293,11 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 				limit = 50
 			}
 		}
-		posts, total, err := s.postSvc.ListPosts(ctx, currentWorkspaceID, postType, status, search, nil, page, limit)
+		posts, total, err := s.postSvc.ListPosts(ctx, currentWorkspaceID, post.PostFilter{
+			PostType: postType,
+			Status:   status,
+			Search:   search,
+		}, page, limit)
 		if err != nil {
 			return formatResultError(err)
 		}

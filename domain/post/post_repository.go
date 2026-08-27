@@ -13,7 +13,7 @@ type PostRepository interface {
 	FindBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*Post, error)
 	Update(ctx context.Context, post *Post) error
 	Delete(ctx context.Context, id uuid.UUID) error
-	List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, limit, offset int) ([]Post, int64, error)
+	List(ctx context.Context, workspaceID uuid.UUID, filter PostFilter, limit, offset int) ([]Post, int64, error)
 	ListPublic(ctx context.Context, workspaceID uuid.UUID, postType string, taxonomySlug string, sortBy string, limit, offset int) ([]Post, int64, error)
 
 	// PostType operations
@@ -78,23 +78,36 @@ func (r *postRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&Post{}, "id = ?", id).Error
 }
 
-func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, postType string, status string, search string, authorID *uuid.UUID, limit, offset int) ([]Post, int64, error) {
+func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, filter PostFilter, limit, offset int) ([]Post, int64, error) {
 	var posts []Post
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies").Where("workspace_id = ?", workspaceID)
 
-	if postType != "" {
-		query = query.Where("post_type = ?", postType)
+	if filter.PostType != "" {
+		query = query.Where("post_type = ?", filter.PostType)
 	}
-	if status != "" {
-		query = query.Where("status = ?", status)
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
 	}
-	if search != "" {
-		query = query.Where("title LIKE ?", "%"+search+"%")
+	if filter.Search != "" {
+		query = query.Where("title LIKE ?", "%"+filter.Search+"%")
 	}
-	if authorID != nil {
-		query = query.Where("author_id = ?", *authorID)
+	if filter.AuthorID != nil {
+		query = query.Where("author_id = ?", *filter.AuthorID)
+	}
+	if filter.Category != "" {
+		if catID, err := uuid.Parse(filter.Category); err == nil {
+			query = query.Where("posts.id IN (SELECT post_id FROM post_taxonomies WHERE taxonomy_id = ?)", catID)
+		} else {
+			query = query.Where("posts.id IN (SELECT pt.post_id FROM post_taxonomies pt JOIN taxonomies t ON t.id = pt.taxonomy_id WHERE t.slug = ? AND t.deleted_at IS NULL)", filter.Category)
+		}
+	}
+	if filter.StartDate != nil {
+		query = query.Where("posts.created_at >= ?", *filter.StartDate)
+	}
+	if filter.EndDate != nil {
+		query = query.Where("posts.created_at <= ?", *filter.EndDate)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

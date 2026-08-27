@@ -809,6 +809,91 @@ func TestPostServiceAndHandler(t *testing.T) {
 			t.Errorf("Expected total=0 for nonexistent type, got %v", meta["total"])
 		}
 	})
+
+	t.Run("GET /api/posts with category and author filters", func(t *testing.T) {
+		// Create a test category
+		catReq := post.CreateTaxonomyReq{
+			Name: "Tech News",
+			Slug: "tech-news",
+			Type: "category",
+		}
+		catBytes, _ := json.Marshal(catReq)
+		cReq := httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(catBytes))
+		cReq.Header.Set("Content-Type", "application/json")
+		cResp, err := app.Test(cReq, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var catResult map[string]interface{}
+		json.NewDecoder(cResp.Body).Decode(&catResult)
+		catData := catResult["data"].(map[string]interface{})
+		catID := catData["id"].(string)
+
+		// Create a post assigned to this category
+		pReq := post.CreatePostReq{
+			Title:       "Post With Category",
+			Content:     "Content for categorized post",
+			Status:      "published",
+			TaxonomyIDs: []string{catID},
+		}
+		pBytes, _ := json.Marshal(pReq)
+		postReq := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(pBytes))
+		postReq.Header.Set("Content-Type", "application/json")
+		pResp, err := app.Test(postReq, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if pResp.StatusCode != http.StatusOK {
+			t.Fatalf("Failed to create post with category: %d", pResp.StatusCode)
+		}
+
+		// Filter by category UUID
+		filterReq := httptest.NewRequest("GET", "/api/posts?category="+catID, nil)
+		filterResp, err := app.Test(filterReq, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if filterResp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200, got %d", filterResp.StatusCode)
+		}
+		var fResult map[string]interface{}
+		json.NewDecoder(filterResp.Body).Decode(&fResult)
+		fData := fResult["data"].([]interface{})
+		if len(fData) == 0 {
+			t.Errorf("Expected at least 1 post for category filter, got 0")
+		}
+
+		// Filter by category slug
+		slugReq := httptest.NewRequest("GET", "/api/posts?category=tech-news", nil)
+		slugResp, err := app.Test(slugReq, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slugResp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 for slug filter, got %d", slugResp.StatusCode)
+		}
+
+		// Filter by author
+		authReq := httptest.NewRequest("GET", "/api/posts?author="+userID.String(), nil)
+		authResp, err := app.Test(authReq, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if authResp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 for author filter, got %d", authResp.StatusCode)
+		}
+
+		// Filter by date
+		today := time.Now().Format("2006-01-02")
+		dateReq := httptest.NewRequest("GET", "/api/posts?date_start="+today+"&date_end="+today, nil)
+		dateResp, err := app.Test(dateReq, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dateResp.StatusCode != http.StatusOK {
+			t.Errorf("Expected 200 for date filter, got %d", dateResp.StatusCode)
+		}
+	})
 }
 
 func TestPostPermissions(t *testing.T) {

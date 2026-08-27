@@ -231,7 +231,7 @@ func (s *TelegramBotService) handleListRecentPosts(ctx context.Context, workspac
 		postType = args[2]
 	}
 
-	posts, _, err := s.postRepo.List(ctx, workspaceID, postType, "", "", nil, limit, 0)
+	posts, _, err := s.postRepo.List(ctx, workspaceID, post.PostFilter{PostType: postType}, limit, 0)
 	if err != nil || len(posts) == 0 {
 		return s.SendMessage(ctx, workspaceID, chatID, fmt.Sprintf("ℹ️ Tidak ada %s yang ditemukan.", postType))
 	}
