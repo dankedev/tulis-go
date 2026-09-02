@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dankedev/tulis-go/config"
+	"github.com/dankedev/tulis-go/utils/helpers"
 	"github.com/dankedev/tulis-go/utils/mail"
 	"github.com/google/uuid"
 )
@@ -52,8 +53,13 @@ func NewWorkspaceService(repo WorkspaceRepository) WorkspaceService {
 }
 
 func (s *workspaceService) CreateWorkspace(ctx context.Context, name, slug, plan string, ownerID uuid.UUID) (*Workspace, error) {
+	name = strings.TrimSpace(name)
+	slug = helpers.Slugify(slug)
 	if slug == "" {
-		slug = strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+		slug = helpers.Slugify(name)
+	}
+	if slug == "" {
+		slug = "workspace"
 	}
 
 	// Verify slug uniqueness
@@ -114,12 +120,15 @@ func (s *workspaceService) UpdateWorkspace(ctx context.Context, id uuid.UUID, na
 		ws.Name = name
 	}
 
-	if slug != "" && slug != ws.Slug {
-		existing, _ := s.repo.FindBySlug(ctx, slug)
-		if existing != nil {
-			return nil, ErrWorkspaceExists
+	if slug != "" {
+		slug = helpers.Slugify(slug)
+		if slug != "" && slug != ws.Slug {
+			existing, _ := s.repo.FindBySlug(ctx, slug)
+			if existing != nil {
+				return nil, ErrWorkspaceExists
+			}
+			ws.Slug = slug
 		}
-		ws.Slug = slug
 	}
 
 	if settings != nil {

@@ -319,3 +319,67 @@ func TestMCPOrderFeature(t *testing.T) {
 	}
 }
 
+func TestMCPSlugSanitization(t *testing.T) {
+	_, svc, _, wsID, userID := setupTestMCP(t)
+
+	// 1. Create post with dirty characters in title
+	createPostReq := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_post","arguments":{"title":"AI & Machine Learning @ 2026,.,!","content":"Content"}}`),
+	}
+	resp := svc.HandleRequest(context.Background(), createPostReq, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to create post via MCP: %v", resp.Error)
+	}
+	tr := resp.Result.(mcp.ToolResult)
+	var postData struct {
+		ID   string `json:"id"`
+		Slug string `json:"slug"`
+	}
+	json.Unmarshal([]byte(tr.Content[0].Text), &postData)
+	if postData.Slug != "ai-machine-learning-2026" {
+		t.Errorf("expected slug 'ai-machine-learning-2026', got '%s'", postData.Slug)
+	}
+
+	// 2. Create taxonomy with dirty characters in name
+	createTaxReq := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_taxonomy","arguments":{"name":"Tech,.,@News!","type":"category"}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), createTaxReq, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to create taxonomy via MCP: %v", resp.Error)
+	}
+	tr = resp.Result.(mcp.ToolResult)
+	var taxData struct {
+		ID   string `json:"id"`
+		Slug string `json:"slug"`
+	}
+	json.Unmarshal([]byte(tr.Content[0].Text), &taxData)
+	if taxData.Slug != "tech-news" {
+		t.Errorf("expected taxonomy slug 'tech-news', got '%s'", taxData.Slug)
+	}
+
+	// 3. Update taxonomy with dirty slug
+	updateTaxReq := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      3,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_update_taxonomy","arguments":{"id":"` + taxData.ID + `","slug":"custom,.,@slug#v2"}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), updateTaxReq, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to update taxonomy via MCP: %v", resp.Error)
+	}
+	tr = resp.Result.(mcp.ToolResult)
+	json.Unmarshal([]byte(tr.Content[0].Text), &taxData)
+	if taxData.Slug != "custom-slug-v2" {
+		t.Errorf("expected taxonomy slug 'custom-slug-v2', got '%s'", taxData.Slug)
+	}
+}
+
+

@@ -665,11 +665,12 @@ func TestPostServiceAndHandler(t *testing.T) {
 		var charlieIdx, alphaIdx, bravoIdx int
 		for idx, item := range items {
 			p := item.(map[string]interface{})
-			if p["slug"] == "post-charlie" {
+			switch p["slug"] {
+			case "post-charlie":
 				charlieIdx = idx
-			} else if p["slug"] == "post-alpha" {
+			case "post-alpha":
 				alphaIdx = idx
-			} else if p["slug"] == "post-bravo" {
+			case "post-bravo":
 				bravoIdx = idx
 			}
 		}
@@ -699,11 +700,12 @@ func TestPostServiceAndHandler(t *testing.T) {
 
 		for idx, item := range items {
 			p := item.(map[string]interface{})
-			if p["slug"] == "post-bravo" {
+			switch p["slug"] {
+			case "post-bravo":
 				bravoIdx = idx
-			} else if p["slug"] == "post-charlie" {
+			case "post-charlie":
 				charlieIdx = idx
-			} else if p["slug"] == "post-alpha" {
+			case "post-alpha":
 				alphaIdx = idx
 			}
 		}
@@ -720,11 +722,12 @@ func TestPostServiceAndHandler(t *testing.T) {
 
 		for idx, item := range items {
 			p := item.(map[string]interface{})
-			if p["slug"] == "post-bravo" {
+			switch p["slug"] {
+			case "post-bravo":
 				bravoIdx = idx
-			} else if p["slug"] == "post-charlie" {
+			case "post-charlie":
 				charlieIdx = idx
-			} else if p["slug"] == "post-alpha" {
+			case "post-alpha":
 				alphaIdx = idx
 			}
 		}
@@ -1320,6 +1323,9 @@ func TestPostTypeFiltering(t *testing.T) {
 
 	app.Post("/api/posts", handler.Create)
 	app.Get("/api/posts", handler.List)
+	app.Put("/api/posts/:id", handler.Update)
+	app.Post("/api/taxonomies", handler.CreateTaxonomy)
+	app.Put("/api/taxonomies/:id", handler.UpdateTaxonomy)
 	app.Post("/api/post-types", handler.RegisterPostType)
 
 	// --- Register custom post type "project" ---
@@ -1526,6 +1532,86 @@ func TestPostTypeFiltering(t *testing.T) {
 		}
 		if !typeSet["project"] {
 			t.Error("Expected 'project' type in unfiltered list")
+		}
+	})
+
+	t.Run("6. Slug Sanitization on Post and Taxonomy Create/Update", func(t *testing.T) {
+		// 1. Create post with dirty slug containing ,.,@ and special characters
+		dirtyPostReq := post.CreatePostReq{
+			Title:   "Post with Special Chars @,.,!",
+			Slug:    "dirty,.,@slug-with#special$chars",
+			Content: "Some content",
+			Status:  "draft",
+		}
+		jsonBytes, _ := json.Marshal(dirtyPostReq)
+		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating post with dirty slug, got %d", resp.StatusCode)
+		}
+		var postRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&postRes)
+		postData := postRes["data"].(map[string]interface{})
+		postID := postData["id"].(string)
+		if postData["slug"] != "dirty-slug-with-special-chars" {
+			t.Errorf("Expected slug to be sanitized to 'dirty-slug-with-special-chars', got '%v'", postData["slug"])
+		}
+
+		// 2. Update post with dirty slug
+		newDirtySlug := "updated,.,@post-slug"
+		updateReq := post.UpdatePostReq{
+			Slug: &newDirtySlug,
+		}
+		jsonBytes, _ = json.Marshal(updateReq)
+		req = httptest.NewRequest("PUT", "/api/posts/"+postID, bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 updating post with dirty slug, got %d", resp.StatusCode)
+		}
+		json.NewDecoder(resp.Body).Decode(&postRes)
+		postData = postRes["data"].(map[string]interface{})
+		if postData["slug"] != "updated-post-slug" {
+			t.Errorf("Expected slug to be sanitized to 'updated-post-slug', got '%v'", postData["slug"])
+		}
+
+		// 3. Create taxonomy with dirty slug
+		dirtyTaxReq := post.CreateTaxonomyReq{
+			Name: "Category @,.,# Tag",
+			Slug: "dirty,.,@cat#slug",
+			Type: "category",
+		}
+		jsonBytes, _ = json.Marshal(dirtyTaxReq)
+		req = httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating taxonomy with dirty slug, got %d", resp.StatusCode)
+		}
+		var taxRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&taxRes)
+		taxData := taxRes["data"].(map[string]interface{})
+		taxID := taxData["id"].(string)
+		if taxData["slug"] != "dirty-cat-slug" {
+			t.Errorf("Expected taxonomy slug to be sanitized to 'dirty-cat-slug', got '%v'", taxData["slug"])
+		}
+
+		// 4. Update taxonomy with dirty slug
+		updateTaxReq := post.UpdateTaxonomyReq{
+			Slug: "updated,.,@taxonomy-slug",
+		}
+		jsonBytes, _ = json.Marshal(updateTaxReq)
+		req = httptest.NewRequest("PUT", "/api/taxonomies/"+taxID, bytes.NewBuffer(jsonBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 updating taxonomy with dirty slug, got %d", resp.StatusCode)
+		}
+		json.NewDecoder(resp.Body).Decode(&taxRes)
+		taxData = taxRes["data"].(map[string]interface{})
+		if taxData["slug"] != "updated-taxonomy-slug" {
+			t.Errorf("Expected taxonomy slug to be sanitized to 'updated-taxonomy-slug', got '%v'", taxData["slug"])
 		}
 	})
 }

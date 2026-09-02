@@ -131,9 +131,12 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		}
 	}
 
-	slug := req.Slug
+	slug := helpers.Slugify(req.Slug)
 	if slug == "" {
 		slug = helpers.Slugify(req.Title)
+	}
+	if slug == "" {
+		slug = "post"
 	}
 
 	originalSlug := slug
@@ -297,19 +300,30 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 		post.PublishedAt = &now
 	}
 
-	if req.Slug != nil && *req.Slug != "" && *req.Slug != post.Slug {
-		slug := *req.Slug
-		originalSlug := slug
-		counter := 1
-		for {
-			existing, _ := s.repo.FindBySlug(ctx, post.WorkspaceID, slug)
-			if existing == nil || existing.ID == post.ID {
-				break
+	if req.Slug != nil && *req.Slug != "" {
+		sanitizedSlug := helpers.Slugify(*req.Slug)
+		if sanitizedSlug == "" {
+			if post.Title != "" {
+				sanitizedSlug = helpers.Slugify(post.Title)
 			}
-			slug = fmt.Sprintf("%s-%d", originalSlug, counter)
-			counter++
+			if sanitizedSlug == "" {
+				sanitizedSlug = "post"
+			}
 		}
-		post.Slug = slug
+		if sanitizedSlug != post.Slug {
+			slug := sanitizedSlug
+			originalSlug := slug
+			counter := 1
+			for {
+				existing, _ := s.repo.FindBySlug(ctx, post.WorkspaceID, slug)
+				if existing == nil || existing.ID == post.ID {
+					break
+				}
+				slug = fmt.Sprintf("%s-%d", originalSlug, counter)
+				counter++
+			}
+			post.Slug = slug
+		}
 	}
 
 	if req.CustomFields != nil {
@@ -608,6 +622,7 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 
 // Taxonomy implementations
 func (s *postService) CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID, order int) (*Taxonomy, error) {
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("taxonomy name is required")
 	}
@@ -615,8 +630,15 @@ func (s *postService) CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID,
 		return nil, errors.New("taxonomy type must be category or tag")
 	}
 
+	slug = helpers.Slugify(slug)
 	if slug == "" {
 		slug = helpers.Slugify(name)
+	}
+	if slug == "" {
+		slug = helpers.Slugify(taxType)
+	}
+	if slug == "" {
+		slug = "taxonomy"
 	}
 
 	existing, _ := s.repo.FindTaxonomyBySlug(ctx, workspaceID, slug, taxType)
@@ -656,15 +678,24 @@ func (s *postService) UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, sl
 	}
 
 	if name != "" {
-		tax.Name = name
+		tax.Name = strings.TrimSpace(name)
 	}
 
-	if slug != "" && slug != tax.Slug {
-		existing, _ := s.repo.FindTaxonomyBySlug(ctx, tax.WorkspaceID, slug, tax.Type)
-		if existing != nil {
-			return nil, ErrTaxonomyExists
+	if slug != "" {
+		slug = helpers.Slugify(slug)
+		if slug == "" {
+			slug = helpers.Slugify(name)
 		}
-		tax.Slug = slug
+		if slug == "" {
+			slug = tax.Slug
+		}
+		if slug != tax.Slug {
+			existing, _ := s.repo.FindTaxonomyBySlug(ctx, tax.WorkspaceID, slug, tax.Type)
+			if existing != nil {
+				return nil, ErrTaxonomyExists
+			}
+			tax.Slug = slug
+		}
 	}
 
 	if parentID != nil {
