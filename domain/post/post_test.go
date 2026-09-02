@@ -89,6 +89,7 @@ func TestPostServiceAndHandler(t *testing.T) {
 	pubHandler := post.NewPublicHandler(svc)
 	app.Get("/v1/posts", pubHandler.ListPosts)
 	app.Get("/v1/posts/:slugOrId", pubHandler.GetPost)
+	app.Get("/v1/taxonomies", pubHandler.ListTaxonomies)
 
 	var firstPostID string
 	var firstPostSlug string
@@ -600,6 +601,139 @@ func TestPostServiceAndHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("Post Order Feature and Custom Sorting", func(t *testing.T) {
+		// 1. Create posts with different order
+		postBReq := post.CreatePostReq{
+			Title:   "Post Bravo",
+			Slug:    "post-bravo",
+			Content: "Bravo content",
+			Status:  "published",
+			Order:   20,
+		}
+		bBytes, _ := json.Marshal(postBReq)
+		req := httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(bBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating Post Bravo, got %d", resp.StatusCode)
+		}
+		var bRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&bRes)
+		bID := bRes["data"].(map[string]interface{})["id"].(string)
+
+		postAReq := post.CreatePostReq{
+			Title:   "Post Alpha",
+			Slug:    "post-alpha",
+			Content: "Alpha content",
+			Status:  "published",
+			Order:   10,
+		}
+		aBytes, _ := json.Marshal(postAReq)
+		req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(aBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating Post Alpha, got %d", resp.StatusCode)
+		}
+
+		postCReq := post.CreatePostReq{
+			Title:   "Post Charlie",
+			Slug:    "post-charlie",
+			Content: "Charlie content",
+			Status:  "published",
+			Order:   5,
+		}
+		cBytes, _ := json.Marshal(postCReq)
+		req = httptest.NewRequest("POST", "/api/posts", bytes.NewBuffer(cBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating Post Charlie, got %d", resp.StatusCode)
+		}
+
+		// 2. Query posts with sort=order asc
+		req = httptest.NewRequest("GET", "/api/posts?sort=order%20asc", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 querying sorted posts, got %d", resp.StatusCode)
+		}
+		var listRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&listRes)
+		items := listRes["data"].([]interface{})
+
+		// Find index of alpha, bravo, charlie
+		var charlieIdx, alphaIdx, bravoIdx int
+		for idx, item := range items {
+			p := item.(map[string]interface{})
+			if p["slug"] == "post-charlie" {
+				charlieIdx = idx
+			} else if p["slug"] == "post-alpha" {
+				alphaIdx = idx
+			} else if p["slug"] == "post-bravo" {
+				bravoIdx = idx
+			}
+		}
+
+		if !(charlieIdx < alphaIdx && alphaIdx < bravoIdx) {
+			t.Errorf("Expected order [charlie(5), alpha(10), bravo(20)], but got indices charlie=%d, alpha=%d, bravo=%d", charlieIdx, alphaIdx, bravoIdx)
+		}
+
+		// 3. Update Bravo order to 1
+		newOrder := 1
+		updateReq := post.UpdatePostReq{
+			Order: &newOrder,
+		}
+		uBytes, _ := json.Marshal(updateReq)
+		req = httptest.NewRequest("PUT", "/api/posts/"+bID, bytes.NewBuffer(uBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 updating post order, got %d", resp.StatusCode)
+		}
+
+		// 4. Query posts again with sort=order asc
+		req = httptest.NewRequest("GET", "/api/posts?sort=order%20asc", nil)
+		resp, _ = app.Test(req, -1)
+		json.NewDecoder(resp.Body).Decode(&listRes)
+		items = listRes["data"].([]interface{})
+
+		for idx, item := range items {
+			p := item.(map[string]interface{})
+			if p["slug"] == "post-bravo" {
+				bravoIdx = idx
+			} else if p["slug"] == "post-charlie" {
+				charlieIdx = idx
+			} else if p["slug"] == "post-alpha" {
+				alphaIdx = idx
+			}
+		}
+
+		if !(bravoIdx < charlieIdx && charlieIdx < alphaIdx) {
+			t.Errorf("Expected reordered [bravo(1), charlie(5), alpha(10)], but got indices bravo=%d, charlie=%d, alpha=%d", bravoIdx, charlieIdx, alphaIdx)
+		}
+
+		// 5. Default query (no sort param) must sort by order ASC, created_at DESC
+		req = httptest.NewRequest("GET", "/api/posts", nil)
+		resp, _ = app.Test(req, -1)
+		json.NewDecoder(resp.Body).Decode(&listRes)
+		items = listRes["data"].([]interface{})
+
+		for idx, item := range items {
+			p := item.(map[string]interface{})
+			if p["slug"] == "post-bravo" {
+				bravoIdx = idx
+			} else if p["slug"] == "post-charlie" {
+				charlieIdx = idx
+			} else if p["slug"] == "post-alpha" {
+				alphaIdx = idx
+			}
+		}
+
+		if !(bravoIdx < charlieIdx && charlieIdx < alphaIdx) {
+			t.Errorf("Expected default order to sort by order ASC [bravo(1), charlie(5), alpha(10)], but got indices bravo=%d, charlie=%d, alpha=%d", bravoIdx, charlieIdx, alphaIdx)
+		}
+	})
+
 	t.Run("Public REST API Headless Consumption", func(t *testing.T) {
 		// 1. Create a published post
 		pubPostReq := post.CreatePostReq{
@@ -667,6 +801,38 @@ func TestPostServiceAndHandler(t *testing.T) {
 		resp, _ = app.Test(req, -1)
 		if resp.StatusCode != http.StatusNotFound {
 			t.Errorf("Expected 404 fetching draft post via public endpoint, got %d", resp.StatusCode)
+		}
+
+		// 6. Test Public API Sorting: order asc vs order desc
+		req = httptest.NewRequest("GET", "/v1/posts?sort=order%20asc", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 on /v1/posts?sort=order asc, got %d", resp.StatusCode)
+		}
+
+		req = httptest.NewRequest("GET", "/v1/posts?sort=order%20desc", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 on /v1/posts?sort=order desc, got %d", resp.StatusCode)
+		}
+
+		// 7. Test Public and Admin Taxonomies Sorting: order asc vs order desc
+		req = httptest.NewRequest("GET", "/v1/taxonomies?sort=order%20desc", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 on /v1/taxonomies?sort=order desc, got %d", resp.StatusCode)
+		}
+		var pubTaxRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&pubTaxRes)
+		taxes := pubTaxRes["data"].([]interface{})
+		if len(taxes) >= 2 {
+			firstTax := taxes[0].(map[string]interface{})
+			lastTax := taxes[len(taxes)-1].(map[string]interface{})
+			firstOrder := int(firstTax["order"].(float64))
+			lastOrder := int(lastTax["order"].(float64))
+			if firstOrder < lastOrder {
+				t.Errorf("Expected order desc (firstOrder >= lastOrder), got first=%d, last=%d", firstOrder, lastOrder)
+			}
 		}
 	})
 

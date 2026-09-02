@@ -16,5 +16,6 @@ type PostRevision struct {
 	CustomFields map[string]interface{} `gorm:"serializer:json" json:"custom_fields"`
 	AuthorID     uuid.UUID              `gorm:"type:char(36);not null" json:"author_id"`
 	FeatureImage string                 `gorm:"type:varchar(255)" json:"feature_image"`
+	Order        int                    `gorm:"type:integer;default:0" json:"order"`
 }
 

@@ -197,3 +197,125 @@ func TestMCPDirectMethodCall(t *testing.T) {
 		t.Fatalf("expected successful ToolResult, got %+v", resp.Result)
 	}
 }
+
+func TestMCPOrderFeature(t *testing.T) {
+	_, svc, _, wsID, userID := setupTestMCP(t)
+
+	// 1. Create Post with Order 20
+	createPostReq := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_post","arguments":{"title":"Second Post","content":"Content","order":20}}`),
+	}
+	resp := svc.HandleRequest(context.Background(), createPostReq, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to create post via MCP: %v", resp.Error)
+	}
+
+	// 2. Create Post with Order 10
+	createPostReq2 := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_post","arguments":{"title":"First Post","content":"Content","order":10}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), createPostReq2, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to create post via MCP: %v", resp.Error)
+	}
+
+	// 3. List posts with sort = order asc (smallest order first)
+	listReqAsc := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      3,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_list_posts","arguments":{"sort":"order asc"}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), listReqAsc, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to list posts via MCP: %v", resp.Error)
+	}
+	tr := resp.Result.(mcp.ToolResult)
+	var listData struct {
+		Posts []struct {
+			Title string `json:"title"`
+			Order int    `json:"order"`
+		} `json:"posts"`
+	}
+	json.Unmarshal([]byte(tr.Content[0].Text), &listData)
+	if len(listData.Posts) < 2 {
+		t.Fatalf("expected at least 2 posts, got %d", len(listData.Posts))
+	}
+	if listData.Posts[0].Order != 10 || listData.Posts[1].Order != 20 {
+		t.Errorf("expected order asc [10, 20], got [%d, %d]", listData.Posts[0].Order, listData.Posts[1].Order)
+	}
+
+	// 4. List posts with sort = order desc (largest order first)
+	listReqDesc := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      4,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_list_posts","arguments":{"sort":"order desc"}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), listReqDesc, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to list posts via MCP: %v", resp.Error)
+	}
+	tr = resp.Result.(mcp.ToolResult)
+	json.Unmarshal([]byte(tr.Content[0].Text), &listData)
+	if listData.Posts[0].Order != 20 || listData.Posts[1].Order != 10 {
+		t.Errorf("expected order desc [20, 10], got [%d, %d]", listData.Posts[0].Order, listData.Posts[1].Order)
+	}
+
+	// 5. Create and sort taxonomies via MCP
+	createTax1 := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      5,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_taxonomy","arguments":{"name":"Cat Beta","type":"category","order":50}}`),
+	}
+	svc.HandleRequest(context.Background(), createTax1, wsID, userID)
+
+	createTax2 := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      6,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_taxonomy","arguments":{"name":"Cat Alpha","type":"category","order":5}}`),
+	}
+	svc.HandleRequest(context.Background(), createTax2, wsID, userID)
+
+	listTaxAsc := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      7,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_list_taxonomies","arguments":{"type":"category","sort":"order asc"}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), listTaxAsc, wsID, userID)
+	tr = resp.Result.(mcp.ToolResult)
+	var taxData []struct {
+		Name  string `json:"name"`
+		Order int    `json:"order"`
+	}
+	json.Unmarshal([]byte(tr.Content[0].Text), &taxData)
+	if len(taxData) < 2 {
+		t.Fatalf("expected at least 2 categories, got %d", len(taxData))
+	}
+	if taxData[0].Order != 5 || taxData[1].Order != 50 {
+		t.Errorf("expected taxonomy order asc [5, 50], got [%d, %d]", taxData[0].Order, taxData[1].Order)
+	}
+
+	listTaxDesc := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      8,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_list_taxonomies","arguments":{"type":"category","sort":"order desc"}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), listTaxDesc, wsID, userID)
+	tr = resp.Result.(mcp.ToolResult)
+	json.Unmarshal([]byte(tr.Content[0].Text), &taxData)
+	if taxData[0].Order != 50 || taxData[1].Order != 5 {
+		t.Errorf("expected taxonomy order desc [50, 5], got [%d, %d]", taxData[0].Order, taxData[1].Order)
+	}
+}
+

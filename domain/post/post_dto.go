@@ -14,6 +14,7 @@ type PostFilter struct {
 	Taxonomy  string     `json:"taxonomy"`
 	StartDate *time.Time `json:"start_date"`
 	EndDate   *time.Time `json:"end_date"`
+	SortBy    string     `json:"sort_by"`
 }
 
 
@@ -35,6 +36,7 @@ type CreatePostReq struct {
 	OgpDesc      string                 `json:"ogp_desc"`
 	OgpImage     string                 `json:"ogp_image"`
 	Language     string                 `json:"language"` // ISO 639-1: id, en, ar
+	Order        int                    `json:"order"`
 }
 
 type UpdatePostReq struct {
@@ -55,6 +57,7 @@ type UpdatePostReq struct {
 	OgpTitle     *string                `json:"ogp_title"`
 	OgpDesc      *string                `json:"ogp_desc"`
 	OgpImage     *string                `json:"ogp_image"`
+	Order        *int                   `json:"order"`
 }
 
 type CreatePostTypeReq struct {

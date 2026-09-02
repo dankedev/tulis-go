@@ -95,6 +95,7 @@ func (s *service) GetTools() []Tool {
 					"status":    {Type: "string", Description: "Filter by status: draft, published, scheduled, archived"},
 					"post_type": {Type: "string", Description: "Filter by post type: post, page, or custom post type slug"},
 					"search":    {Type: "string", Description: "Search posts by title or content"},
+					"sort":      {Type: "string", Description: "Sort order: 'order asc' (default, smallest order first), 'order desc' (largest order first), 'created_at desc', 'published_at desc', 'title asc', etc."},
 					"page":      {Type: "integer", Description: "Page number (default: 1)"},
 					"limit":     {Type: "integer", Description: "Results per page (default: 20, max: 50)"},
 				},
@@ -126,6 +127,7 @@ func (s *service) GetTools() []Tool {
 					"seo_title":     {Type: "string", Description: "SEO title"},
 					"seo_desc":      {Type: "string", Description: "SEO meta description"},
 					"taxonomy_ids":  {Type: "array", Description: "Array of taxonomy (category/tag) IDs to assign"},
+					"order":         {Type: "integer", Description: "Display order index (lower number appears first, default: 0)"},
 				},
 				Required: []string{"title"},
 			},
@@ -144,6 +146,7 @@ func (s *service) GetTools() []Tool {
 					"feature_image": {Type: "string", Description: "New featured image URL"},
 					"seo_title":     {Type: "string", Description: "New SEO title"},
 					"seo_desc":      {Type: "string", Description: "New SEO description"},
+					"order":         {Type: "integer", Description: "New display order index"},
 				},
 				Required: []string{"id"},
 			},
@@ -155,6 +158,7 @@ func (s *service) GetTools() []Tool {
 				Type: "object",
 				Properties: map[string]Property{
 					"type": {Type: "string", Description: "Filter by type: category or tag"},
+					"sort": {Type: "string", Description: "Sort order: 'order asc' (default, smallest order first), 'order desc' (largest order first), 'name asc', 'name desc', 'created_at desc'"},
 				},
 			},
 		},
@@ -168,8 +172,24 @@ func (s *service) GetTools() []Tool {
 					"slug":      {Type: "string", Description: "URL slug (auto-generated if empty)"},
 					"type":      {Type: "string", Description: "category or tag (required)"},
 					"parent_id": {Type: "string", Description: "Parent category ID (for hierarchical categories)"},
+					"order":     {Type: "integer", Description: "Display order index (lower number appears first, default: 0)"},
 				},
 				Required: []string{"name", "type"},
+			},
+		},
+		{
+			Name:        "tulis_update_taxonomy",
+			Description: "Update an existing category or tag by ID.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"id":        {Type: "string", Description: "Taxonomy UUID (required)"},
+					"name":      {Type: "string", Description: "New taxonomy name"},
+					"slug":      {Type: "string", Description: "New URL slug"},
+					"parent_id": {Type: "string", Description: "New parent category ID"},
+					"order":     {Type: "integer", Description: "New display order index"},
+				},
+				Required: []string{"id"},
 			},
 		},
 		{
@@ -293,10 +313,12 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 				limit = 50
 			}
 		}
+		sortBy, _ := params["sort"].(string)
 		posts, total, err := s.postSvc.ListPosts(ctx, currentWorkspaceID, post.PostFilter{
 			PostType: postType,
 			Status:   status,
 			Search:   search,
+			SortBy:   sortBy,
 		}, page, limit)
 		if err != nil {
 			return formatResultError(err)
@@ -352,6 +374,13 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 			}
 		}
 
+		var order int
+		if orderVal, ok := params["order"].(float64); ok {
+			order = int(orderVal)
+		} else if orderVal, ok := params["order"].(int); ok {
+			order = orderVal
+		}
+
 		req := post.CreatePostReq{
 			Title:        title,
 			Content:      content,
@@ -362,6 +391,7 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 			SeoTitle:     seoTitle,
 			SeoDesc:      seoDesc,
 			TaxonomyIDs:  taxStrings,
+			Order:        order,
 		}
 		p, err := s.postSvc.CreatePost(ctx, req, userID, currentWorkspaceID)
 		if err != nil {
@@ -398,6 +428,12 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		if seoDesc, ok := params["seo_desc"].(string); ok {
 			req.SeoDesc = &seoDesc
 		}
+		if orderVal, ok := params["order"].(float64); ok {
+			ord := int(orderVal)
+			req.Order = &ord
+		} else if orderVal, ok := params["order"].(int); ok {
+			req.Order = &orderVal
+		}
 
 		p, err := s.postSvc.UpdatePost(ctx, postUUID, req, userID)
 		if err != nil {
@@ -407,7 +443,8 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 
 	case "tulis_list_taxonomies":
 		taxType, _ := params["type"].(string)
-		taxonomies, err := s.postSvc.ListTaxonomies(ctx, currentWorkspaceID, taxType)
+		sortBy, _ := params["sort"].(string)
+		taxonomies, err := s.postSvc.ListTaxonomies(ctx, currentWorkspaceID, taxType, sortBy)
 		if err != nil {
 			return formatResultError(err)
 		}
@@ -430,6 +467,33 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 			order = orderVal
 		}
 		t, err := s.postSvc.CreateTaxonomy(ctx, currentWorkspaceID, name, slug, taxType, parentID, order)
+		if err != nil {
+			return formatResultError(err)
+		}
+		return formatResultJSON(t)
+
+	case "tulis_update_taxonomy":
+		idStr, _ := params["id"].(string)
+		taxUUID, err := uuid.Parse(idStr)
+		if err != nil {
+			return formatResultError(errors.New("valid taxonomy UUID id is required"))
+		}
+		name, _ := params["name"].(string)
+		slug, _ := params["slug"].(string)
+		var parentID *uuid.UUID
+		if pidStr, ok := params["parent_id"].(string); ok && pidStr != "" {
+			if pu, err := uuid.Parse(pidStr); err == nil {
+				parentID = &pu
+			}
+		}
+		var reqOrder *int
+		if orderVal, ok := params["order"].(float64); ok {
+			ord := int(orderVal)
+			reqOrder = &ord
+		} else if orderVal, ok := params["order"].(int); ok {
+			reqOrder = &orderVal
+		}
+		t, err := s.postSvc.UpdateTaxonomy(ctx, taxUUID, name, slug, parentID, reqOrder)
 		if err != nil {
 			return formatResultError(err)
 		}

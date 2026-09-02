@@ -460,6 +460,7 @@ func (s *importerService) importPosts(ctx context.Context, items []WXRItem, sess
 			PostType:     postType,
 			PublishedAt:  publishedAt,
 			CustomFields: customFields,
+			Order:        int(item.MenuOrder),
 		}
 
 		if err := s.postRepo.Create(ctx, p); err != nil {

@@ -35,7 +35,7 @@ type PostRepository interface {
 	FindTaxonomyBySlug(ctx context.Context, workspaceID uuid.UUID, slug string, taxType string) (*Taxonomy, error)
 	UpdateTaxonomy(ctx context.Context, taxonomy *Taxonomy) error
 	DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
-	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error)
+	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string, sortBy ...string) ([]Taxonomy, error)
 	AssignTaxonomies(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error
 	GetPostTaxonomies(ctx context.Context, postID uuid.UUID) ([]Taxonomy, error)
 }
@@ -54,7 +54,9 @@ func (r *postRepository) Create(ctx context.Context, post *Post) error {
 
 func (r *postRepository) FindByID(ctx context.Context, id uuid.UUID) (*Post, error) {
 	var post Post
-	err := r.db.WithContext(ctx).Preload("Taxonomies").First(&post, "id = ?", id).Error
+	err := r.db.WithContext(ctx).Preload("Taxonomies", func(db *gorm.DB) *gorm.DB {
+		return db.Order("`order` ASC, created_at DESC")
+	}).First(&post, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +65,9 @@ func (r *postRepository) FindByID(ctx context.Context, id uuid.UUID) (*Post, err
 
 func (r *postRepository) FindBySlug(ctx context.Context, workspaceID uuid.UUID, slug string) (*Post, error) {
 	var post Post
-	err := r.db.WithContext(ctx).Preload("Taxonomies").Where("workspace_id = ? AND slug = ?", workspaceID, slug).First(&post).Error
+	err := r.db.WithContext(ctx).Preload("Taxonomies", func(db *gorm.DB) *gorm.DB {
+		return db.Order("`order` ASC, created_at DESC")
+	}).Where("workspace_id = ? AND slug = ?", workspaceID, slug).First(&post).Error
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +86,9 @@ func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, filter
 	var posts []Post
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies").Where("workspace_id = ?", workspaceID)
+	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies", func(db *gorm.DB) *gorm.DB {
+		return db.Order("`order` ASC, created_at DESC")
+	}).Where("workspace_id = ?", workspaceID)
 
 	if filter.PostType != "" {
 		query = query.Where("post_type = ?", filter.PostType)
@@ -114,7 +120,40 @@ func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, filter
 		return nil, 0, err
 	}
 
-	err := query.Order("created_at desc").Limit(limit).Offset(offset).Find(&posts).Error
+	sortOrder := "`order` ASC, created_at DESC"
+	allowedSorts := map[string]string{
+		"created_at desc":   "`order` ASC, created_at desc",
+		"created_at asc":    "`order` ASC, created_at asc",
+		"created_at_desc":  "`order` ASC, created_at desc",
+		"created_at_asc":   "`order` ASC, created_at asc",
+		"created_at:desc":  "`order` ASC, created_at desc",
+		"created_at:asc":   "`order` ASC, created_at asc",
+		"published_at desc": "`order` ASC, published_at desc, created_at desc",
+		"published_at asc":  "`order` ASC, published_at asc, created_at desc",
+		"published_at_desc": "`order` ASC, published_at desc, created_at desc",
+		"published_at_asc":  "`order` ASC, published_at asc, created_at desc",
+		"published_at:desc": "`order` ASC, published_at desc, created_at desc",
+		"published_at:asc":  "`order` ASC, published_at asc, created_at desc",
+		"title asc":         "`order` ASC, title asc, created_at desc",
+		"title desc":        "`order` ASC, title desc, created_at desc",
+		"title_asc":         "`order` ASC, title asc, created_at desc",
+		"title_desc":        "`order` ASC, title desc, created_at desc",
+		"title:asc":         "`order` ASC, title asc, created_at desc",
+		"title:desc":        "`order` ASC, title desc, created_at desc",
+		"order asc":         "`order` ASC, created_at desc",
+		"order desc":        "`order` DESC, created_at desc",
+		"order_asc":         "`order` ASC, created_at desc",
+		"order_desc":        "`order` DESC, created_at desc",
+		"order:asc":         "`order` ASC, created_at desc",
+		"order:desc":        "`order` DESC, created_at desc",
+	}
+	if filter.SortBy != "" {
+		if order, exists := allowedSorts[filter.SortBy]; exists {
+			sortOrder = order
+		}
+	}
+
+	err := query.Order(sortOrder).Limit(limit).Offset(offset).Find(&posts).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -220,13 +259,41 @@ func (r *postRepository) DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
 	})
 }
 
-func (r *postRepository) ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error) {
+func (r *postRepository) ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string, sortBy ...string) ([]Taxonomy, error) {
 	var taxonomies []Taxonomy
 	query := r.db.WithContext(ctx).Where("workspace_id = ?", workspaceID)
 	if taxType != "" {
 		query = query.Where("type = ?", taxType)
 	}
-	err := query.Order("`order` ASC, name ASC").Find(&taxonomies).Error
+
+	sortOrder := "`order` ASC, created_at DESC"
+	if len(sortBy) > 0 && sortBy[0] != "" {
+		allowedSorts := map[string]string{
+			"order asc":        "`order` ASC, created_at DESC",
+			"order desc":       "`order` DESC, created_at DESC",
+			"order_asc":        "`order` ASC, created_at DESC",
+			"order_desc":       "`order` DESC, created_at DESC",
+			"order:asc":        "`order` ASC, created_at DESC",
+			"order:desc":       "`order` DESC, created_at DESC",
+			"name asc":         "name ASC, `order` ASC, created_at DESC",
+			"name desc":        "name DESC, `order` ASC, created_at DESC",
+			"name_asc":         "name ASC, `order` ASC, created_at DESC",
+			"name_desc":        "name DESC, `order` ASC, created_at DESC",
+			"name:asc":         "name ASC, `order` ASC, created_at DESC",
+			"name:desc":        "name DESC, `order` ASC, created_at DESC",
+			"created_at desc":  "created_at DESC",
+			"created_at asc":   "created_at ASC",
+			"created_at_desc":  "created_at DESC",
+			"created_at_asc":   "created_at ASC",
+			"created_at:desc":  "created_at DESC",
+			"created_at:asc":   "created_at ASC",
+		}
+		if o, ok := allowedSorts[sortBy[0]]; ok {
+			sortOrder = o
+		}
+	}
+
+	err := query.Order(sortOrder).Find(&taxonomies).Error
 	return taxonomies, err
 }
 
@@ -256,6 +323,7 @@ func (r *postRepository) GetPostTaxonomies(ctx context.Context, postID uuid.UUID
 		Table("taxonomies").
 		Joins("join post_taxonomies on post_taxonomies.taxonomy_id = taxonomies.id").
 		Where("post_taxonomies.post_id = ? and taxonomies.deleted_at is null", postID).
+		Order("taxonomies.`order` ASC, taxonomies.created_at DESC").
 		Find(&taxonomies).Error
 	return taxonomies, err
 }
@@ -264,7 +332,9 @@ func (r *postRepository) ListPublic(ctx context.Context, workspaceID uuid.UUID, 
 	var posts []Post
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies").Where("posts.workspace_id = ? AND posts.status = ?", workspaceID, "published")
+	query := r.db.WithContext(ctx).Model(&Post{}).Preload("Taxonomies", func(db *gorm.DB) *gorm.DB {
+		return db.Order("`order` ASC, created_at DESC")
+	}).Where("posts.workspace_id = ? AND posts.status = ?", workspaceID, "published")
 
 	if postType != "" {
 		query = query.Where("posts.post_type = ?", postType)
@@ -286,14 +356,32 @@ func (r *postRepository) ListPublic(ctx context.Context, workspaceID uuid.UUID, 
 	}
 
 	// Default sort if none or invalid is provided
-	sortOrder := "published_at desc"
+	sortOrder := "`order` ASC, published_at desc, created_at desc"
 	allowedSorts := map[string]string{
-		"published_at desc": "published_at desc",
-		"published_at asc":  "published_at asc",
-		"title asc":         "title asc",
-		"title desc":        "title desc",
-		"created_at desc":   "created_at desc",
-		"created_at asc":    "created_at asc",
+		"published_at desc": "`order` ASC, published_at desc, created_at desc",
+		"published_at asc":  "`order` ASC, published_at asc, created_at desc",
+		"published_at_desc": "`order` ASC, published_at desc, created_at desc",
+		"published_at_asc":  "`order` ASC, published_at asc, created_at desc",
+		"published_at:desc": "`order` ASC, published_at desc, created_at desc",
+		"published_at:asc":  "`order` ASC, published_at asc, created_at desc",
+		"title asc":         "`order` ASC, title asc, created_at desc",
+		"title desc":        "`order` ASC, title desc, created_at desc",
+		"title_asc":         "`order` ASC, title asc, created_at desc",
+		"title_desc":        "`order` ASC, title desc, created_at desc",
+		"title:asc":         "`order` ASC, title asc, created_at desc",
+		"title:desc":        "`order` ASC, title desc, created_at desc",
+		"created_at desc":   "`order` ASC, created_at desc",
+		"created_at asc":    "`order` ASC, created_at asc",
+		"created_at_desc":   "`order` ASC, created_at desc",
+		"created_at_asc":    "`order` ASC, created_at asc",
+		"created_at:desc":   "`order` ASC, created_at desc",
+		"created_at:asc":    "`order` ASC, created_at asc",
+		"order asc":         "`order` ASC, published_at desc, created_at desc",
+		"order desc":        "`order` DESC, published_at desc, created_at desc",
+		"order_asc":         "`order` ASC, published_at desc, created_at desc",
+		"order_desc":        "`order` DESC, published_at desc, created_at desc",
+		"order:asc":         "`order` ASC, published_at desc, created_at desc",
+		"order:desc":        "`order` DESC, published_at desc, created_at desc",
 	}
 
 	if sortBy != "" {

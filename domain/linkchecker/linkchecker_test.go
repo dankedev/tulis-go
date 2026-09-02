@@ -60,7 +60,7 @@ func (t *testPostRepo) FindTaxonomyBySlug(ctx context.Context, wsID uuid.UUID, s
 }
 func (t *testPostRepo) UpdateTaxonomy(ctx context.Context, tx *post.Taxonomy) error { return nil }
 func (t *testPostRepo) DeleteTaxonomy(ctx context.Context, id uuid.UUID) error      { return nil }
-func (t *testPostRepo) ListTaxonomies(ctx context.Context, wsID uuid.UUID, taxType string) ([]post.Taxonomy, error) {
+func (t *testPostRepo) ListTaxonomies(ctx context.Context, wsID uuid.UUID, taxType string, sortBy ...string) ([]post.Taxonomy, error) {
 	return nil, nil
 }
 func (t *testPostRepo) AssignTaxonomies(ctx context.Context, postID uuid.UUID, ids []uuid.UUID) error {

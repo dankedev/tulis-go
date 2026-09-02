@@ -330,6 +330,16 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 	status := c.Query("status", "")
 	search := c.Query("search", "")
 	taxonomy := c.Query("taxonomy", "")
+	sortBy := c.Query("sort", "")
+	if sortBy == "" {
+		sortBy = c.Query("sort_by", "")
+	}
+	orderDir := c.Query("order_dir", c.Query("order", ""))
+	if (sortBy == "order" || sortBy == "created_at" || sortBy == "published_at" || sortBy == "title") && orderDir != "" {
+		sortBy = sortBy + " " + orderDir
+	} else if sortBy == "" && (orderDir == "asc" || orderDir == "desc") {
+		sortBy = "order " + orderDir
+	}
 
 	var startDate *time.Time
 	dateStartStr := c.Query("date_start", "")
@@ -363,6 +373,7 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 		Taxonomy:  taxonomy,
 		StartDate: startDate,
 		EndDate:   endDate,
+		SortBy:    sortBy,
 	}
 
 	posts, total, err := h.svc.ListPosts(c.Context(), workspaceID, filter, page, perPage)
@@ -850,7 +861,7 @@ func (h *PostHandler) DeleteTaxonomy(c *fiber.Ctx) error {
 
 // ListTaxonomies godoc
 // @Summary List taxonomies
-// @Description Returns all taxonomies in the workspace, optionally filtered by type
+// @Description Returns all taxonomies in the workspace, optionally filtered by type and sorted
 // @Tags Taxonomies
 // @Accept json
 // @Produce json
@@ -858,6 +869,7 @@ func (h *PostHandler) DeleteTaxonomy(c *fiber.Ctx) error {
 // @Param Authorization header string true "Bearer token"
 // @Param X-Workspace-ID header string true "Workspace ID"
 // @Param type query string false "Filter by taxonomy type (category, tag)"
+// @Param sort query string false "Sort order (order asc, order desc, name asc, etc.)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Router /api/taxonomies [get]
@@ -872,8 +884,18 @@ func (h *PostHandler) ListTaxonomies(c *fiber.Ctx) error {
 	}
 
 	taxType := c.Query("type", "")
+	sortBy := c.Query("sort", "")
+	if sortBy == "" {
+		sortBy = c.Query("sort_by", "")
+	}
+	orderDir := c.Query("order_dir", c.Query("order", ""))
+	if (sortBy == "order" || sortBy == "name" || sortBy == "created_at") && orderDir != "" {
+		sortBy = sortBy + " " + orderDir
+	} else if sortBy == "" && (orderDir == "asc" || orderDir == "desc") {
+		sortBy = "order " + orderDir
+	}
 
-	taxonomies, err := h.svc.ListTaxonomies(c.Context(), workspaceID, taxType)
+	taxonomies, err := h.svc.ListTaxonomies(c.Context(), workspaceID, taxType, sortBy)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}

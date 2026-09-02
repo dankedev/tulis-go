@@ -295,9 +295,11 @@ func (s *TelegramBotService) handleListByPeriod(ctx context.Context, workspaceID
 	}
 
 	var posts []post.Post
-	err := s.db.WithContext(ctx).Preload("Taxonomies").
+	err := s.db.WithContext(ctx).Preload("Taxonomies", func(db *gorm.DB) *gorm.DB {
+		return db.Order("`order` ASC, created_at DESC")
+	}).
 		Where("workspace_id = ? AND created_at >= ?", workspaceID, startTime).
-		Order("created_at desc").Limit(15).Find(&posts).Error
+		Order("`order` ASC, created_at DESC").Limit(15).Find(&posts).Error
 
 	if err != nil || len(posts) == 0 {
 		return s.SendMessage(ctx, workspaceID, chatID, fmt.Sprintf("ℹ️ Tidak ada konten baru dalam periode <b>%s</b>.", period))

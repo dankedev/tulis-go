@@ -85,7 +85,7 @@ type PostService interface {
 	GetTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxonomy, error)
 	UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID, order *int) (*Taxonomy, error)
 	DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
-	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error)
+	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string, sortBy ...string) ([]Taxonomy, error)
 	AssignTaxonomiesToPost(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error
 
 	// Public consumption methods
@@ -192,6 +192,7 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		OgpTitle:     req.OgpTitle,
 		OgpDesc:      req.OgpDesc,
 		OgpImage:     req.OgpImage,
+		Order:        req.Order,
 	}
 
 	if req.Language != "" {
@@ -231,6 +232,7 @@ func (s *postService) CreatePost(ctx context.Context, req CreatePostReq, authorI
 		CustomFields: post.CustomFields,
 		AuthorID:     authorID,
 		FeatureImage: post.FeatureImage,
+		Order:        post.Order,
 	}
 	_ = s.repo.CreateRevision(ctx, revision)
 
@@ -362,6 +364,9 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 	if req.OgpImage != nil {
 		post.OgpImage = *req.OgpImage
 	}
+	if req.Order != nil {
+		post.Order = *req.Order
+	}
 
 	if s.pluginSvc != nil {
 		_ = s.pluginSvc.TriggerHook(ctx, post.WorkspaceID, "before_update_post", post)
@@ -395,6 +400,7 @@ func (s *postService) UpdatePost(ctx context.Context, id uuid.UUID, req UpdatePo
 		CustomFields: post.CustomFields,
 		AuthorID:     authorID,
 		FeatureImage: post.FeatureImage,
+		Order:        post.Order,
 	}
 	_ = s.repo.CreateRevision(ctx, revision)
 
@@ -578,6 +584,7 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 	post.Excerpt = revision.Excerpt
 	post.CustomFields = revision.CustomFields
 	post.FeatureImage = revision.FeatureImage
+	post.Order = revision.Order
 
 	if err := s.repo.Update(ctx, post); err != nil {
 		return nil, err
@@ -592,6 +599,7 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 		CustomFields: post.CustomFields,
 		AuthorID:     authorID,
 		FeatureImage: post.FeatureImage,
+		Order:        post.Order,
 	}
 	_ = s.repo.CreateRevision(ctx, newRevision)
 
@@ -682,8 +690,8 @@ func (s *postService) DeleteTaxonomy(ctx context.Context, id uuid.UUID) error {
 	return s.repo.DeleteTaxonomy(ctx, id)
 }
 
-func (s *postService) ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error) {
-	return s.repo.ListTaxonomies(ctx, workspaceID, taxType)
+func (s *postService) ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string, sortBy ...string) ([]Taxonomy, error) {
+	return s.repo.ListTaxonomies(ctx, workspaceID, taxType, sortBy...)
 }
 
 func (s *postService) AssignTaxonomiesToPost(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error {

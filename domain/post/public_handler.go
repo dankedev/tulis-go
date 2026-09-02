@@ -50,7 +50,16 @@ func (h *PublicHandler) ListPosts(c *fiber.Ctx) error {
 
 	postType := c.Query("type", "")
 	taxonomy := c.Query("taxonomy", "")
-	sortBy := c.Query("sort", "published_at desc")
+	sortBy := c.Query("sort", "")
+	if sortBy == "" {
+		sortBy = c.Query("sort_by", "")
+	}
+	orderDir := c.Query("order_dir", c.Query("order", ""))
+	if (sortBy == "order" || sortBy == "published_at" || sortBy == "created_at" || sortBy == "title") && orderDir != "" {
+		sortBy = sortBy + " " + orderDir
+	} else if sortBy == "" && (orderDir == "asc" || orderDir == "desc") {
+		sortBy = "order " + orderDir
+	}
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("per_page", "10"))
@@ -126,6 +135,7 @@ func (h *PublicHandler) GetPost(c *fiber.Ctx) error {
 // @Produce json
 // @Param X-Workspace-ID header string true "Workspace ID"
 // @Param type query string false "Filter by taxonomy type"
+// @Param sort query string false "Sort order (order asc, order desc, name asc, etc.)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Router /api/v1/public/taxonomies [get]
@@ -140,8 +150,18 @@ func (h *PublicHandler) ListTaxonomies(c *fiber.Ctx) error {
 	}
 
 	taxType := c.Query("type", "")
+	sortBy := c.Query("sort", "")
+	if sortBy == "" {
+		sortBy = c.Query("sort_by", "")
+	}
+	orderDir := c.Query("order_dir", c.Query("order", ""))
+	if (sortBy == "order" || sortBy == "name" || sortBy == "created_at") && orderDir != "" {
+		sortBy = sortBy + " " + orderDir
+	} else if sortBy == "" && (orderDir == "asc" || orderDir == "desc") {
+		sortBy = "order " + orderDir
+	}
 
-	taxonomies, err := h.postSvc.ListTaxonomies(c.Context(), workspaceID, taxType)
+	taxonomies, err := h.postSvc.ListTaxonomies(c.Context(), workspaceID, taxType, sortBy)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
