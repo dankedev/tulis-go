@@ -17,6 +17,7 @@ type Taxonomy struct {
 	Slug        string         `gorm:"type:varchar(255);not null;index:idx_tax_ws" json:"slug"`
 	Type        string         `gorm:"type:varchar(50);not null;index" json:"type"` // 'category' or 'tag'
 	ParentID    *uuid.UUID     `gorm:"type:char(36);index" json:"parent_id"`            // For category hierarchy
+	Order       int            `gorm:"type:integer;default:0" json:"order"`
 }
 
 type PostTaxonomy struct {

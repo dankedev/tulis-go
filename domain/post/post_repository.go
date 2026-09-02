@@ -96,11 +96,11 @@ func (r *postRepository) List(ctx context.Context, workspaceID uuid.UUID, filter
 	if filter.AuthorID != nil {
 		query = query.Where("author_id = ?", *filter.AuthorID)
 	}
-	if filter.Category != "" {
-		if catID, err := uuid.Parse(filter.Category); err == nil {
-			query = query.Where("posts.id IN (SELECT post_id FROM post_taxonomies WHERE taxonomy_id = ?)", catID)
+	if filter.Taxonomy != "" {
+		if taxID, err := uuid.Parse(filter.Taxonomy); err == nil {
+			query = query.Where("posts.id IN (SELECT post_id FROM post_taxonomies WHERE taxonomy_id = ?)", taxID)
 		} else {
-			query = query.Where("posts.id IN (SELECT pt.post_id FROM post_taxonomies pt JOIN taxonomies t ON t.id = pt.taxonomy_id WHERE t.slug = ? AND t.deleted_at IS NULL)", filter.Category)
+			query = query.Where("posts.id IN (SELECT pt.post_id FROM post_taxonomies pt JOIN taxonomies t ON t.id = pt.taxonomy_id WHERE t.slug = ? AND t.deleted_at IS NULL)", filter.Taxonomy)
 		}
 	}
 	if filter.StartDate != nil {
@@ -226,7 +226,7 @@ func (r *postRepository) ListTaxonomies(ctx context.Context, workspaceID uuid.UU
 	if taxType != "" {
 		query = query.Where("type = ?", taxType)
 	}
-	err := query.Find(&taxonomies).Error
+	err := query.Order("`order` ASC, name ASC").Find(&taxonomies).Error
 	return taxonomies, err
 }
 
@@ -271,9 +271,14 @@ func (r *postRepository) ListPublic(ctx context.Context, workspaceID uuid.UUID, 
 	}
 
 	if taxonomySlug != "" {
-		query = query.Joins("join post_taxonomies on post_taxonomies.post_id = posts.id").
-			Joins("join taxonomies on taxonomies.id = post_taxonomies.taxonomy_id").
-			Where("taxonomies.slug = ? AND taxonomies.deleted_at is null", taxonomySlug)
+		if taxID, err := uuid.Parse(taxonomySlug); err == nil {
+			query = query.Joins("join post_taxonomies on post_taxonomies.post_id = posts.id").
+				Where("post_taxonomies.taxonomy_id = ?", taxID)
+		} else {
+			query = query.Joins("join post_taxonomies on post_taxonomies.post_id = posts.id").
+				Joins("join taxonomies on taxonomies.id = post_taxonomies.taxonomy_id").
+				Where("taxonomies.slug = ? AND taxonomies.deleted_at is null", taxonomySlug)
+		}
 	}
 
 	if err := query.Count(&total).Error; err != nil {

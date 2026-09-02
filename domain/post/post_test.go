@@ -506,6 +506,100 @@ func TestPostServiceAndHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("Taxonomy Order Feature and Sorting", func(t *testing.T) {
+		// 1. Create taxonomies with different order
+		catBReq := post.CreateTaxonomyReq{
+			Name:  "Category Beta",
+			Slug:  "cat-beta",
+			Type:  "category",
+			Order: 20,
+		}
+		bBytes, _ := json.Marshal(catBReq)
+		req := httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(bBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating Category Beta, got %d", resp.StatusCode)
+		}
+		var bRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&bRes)
+		bID := bRes["data"].(map[string]interface{})["id"].(string)
+
+		catAReq := post.CreateTaxonomyReq{
+			Name:  "Category Alpha",
+			Slug:  "cat-alpha",
+			Type:  "category",
+			Order: 10,
+		}
+		aBytes, _ := json.Marshal(catAReq)
+		req = httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(aBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating Category Alpha, got %d", resp.StatusCode)
+		}
+
+		catCReq := post.CreateTaxonomyReq{
+			Name:  "Category Gamma",
+			Slug:  "cat-gamma",
+			Type:  "category",
+			Order: 5,
+		}
+		cBytes, _ := json.Marshal(catCReq)
+		req = httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(cBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 creating Category Gamma, got %d", resp.StatusCode)
+		}
+
+		// 2. Fetch list of categories, should be sorted by order ASC: Gamma (5), Alpha (10), Beta (20)
+		req = httptest.NewRequest("GET", "/api/taxonomies?type=category", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 listing taxonomies, got %d", resp.StatusCode)
+		}
+		var listRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&listRes)
+		items := listRes["data"].([]interface{})
+		if len(items) < 3 {
+			t.Fatalf("Expected at least 3 categories, got %d", len(items))
+		}
+		first := items[0].(map[string]interface{})
+		second := items[1].(map[string]interface{})
+		third := items[2].(map[string]interface{})
+
+		if first["slug"] != "cat-gamma" || second["slug"] != "cat-alpha" || third["slug"] != "cat-beta" {
+			t.Errorf("Expected order [cat-gamma, cat-alpha, cat-beta], got [%v, %v, %v]", first["slug"], second["slug"], third["slug"])
+		}
+
+		// 3. Update Beta's order to 1 (making it first)
+		newOrder := 1
+		updateReq := post.UpdateTaxonomyReq{
+			Order: &newOrder,
+		}
+		uBytes, _ := json.Marshal(updateReq)
+		req = httptest.NewRequest("PUT", "/api/taxonomies/"+bID, bytes.NewBuffer(uBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 updating taxonomy order, got %d", resp.StatusCode)
+		}
+
+		// 4. Verify new sorting: Beta (1), Gamma (5), Alpha (10)
+		req = httptest.NewRequest("GET", "/api/taxonomies?type=category", nil)
+		resp, _ = app.Test(req, -1)
+		json.NewDecoder(resp.Body).Decode(&listRes)
+		items = listRes["data"].([]interface{})
+		first = items[0].(map[string]interface{})
+		second = items[1].(map[string]interface{})
+		third = items[2].(map[string]interface{})
+
+		if first["slug"] != "cat-beta" || second["slug"] != "cat-gamma" || third["slug"] != "cat-alpha" {
+			t.Errorf("Expected reordered [cat-beta, cat-gamma, cat-alpha], got [%v, %v, %v]", first["slug"], second["slug"], third["slug"])
+		}
+	})
+
 	t.Run("Public REST API Headless Consumption", func(t *testing.T) {
 		// 1. Create a published post
 		pubPostReq := post.CreatePostReq{

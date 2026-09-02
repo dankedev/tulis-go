@@ -81,9 +81,9 @@ type PostService interface {
 	RestoreRevision(ctx context.Context, revisionID uuid.UUID, authorID uuid.UUID) (*Post, error)
 
 	// Taxonomy
-	CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID) (*Taxonomy, error)
+	CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID, order int) (*Taxonomy, error)
 	GetTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxonomy, error)
-	UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID) (*Taxonomy, error)
+	UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID, order *int) (*Taxonomy, error)
 	DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
 	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string) ([]Taxonomy, error)
 	AssignTaxonomiesToPost(ctx context.Context, postID uuid.UUID, taxonomyIDs []uuid.UUID) error
@@ -599,7 +599,7 @@ func (s *postService) RestoreRevision(ctx context.Context, revisionID uuid.UUID,
 }
 
 // Taxonomy implementations
-func (s *postService) CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID) (*Taxonomy, error) {
+func (s *postService) CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID, order int) (*Taxonomy, error) {
 	if name == "" {
 		return nil, errors.New("taxonomy name is required")
 	}
@@ -623,6 +623,7 @@ func (s *postService) CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID,
 		Slug:        slug,
 		Type:        taxType,
 		ParentID:    parentID,
+		Order:       order,
 	}
 
 	if err := s.repo.CreateTaxonomy(ctx, tax); err != nil {
@@ -640,7 +641,7 @@ func (s *postService) GetTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxon
 	return tax, nil
 }
 
-func (s *postService) UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID) (*Taxonomy, error) {
+func (s *postService) UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID, order *int) (*Taxonomy, error) {
 	tax, err := s.repo.FindTaxonomyByID(ctx, id)
 	if err != nil {
 		return nil, ErrTaxonomyNotFound
@@ -660,6 +661,10 @@ func (s *postService) UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, sl
 
 	if parentID != nil {
 		tax.ParentID = parentID
+	}
+
+	if order != nil {
+		tax.Order = *order
 	}
 
 	if err := s.repo.UpdateTaxonomy(ctx, tax); err != nil {

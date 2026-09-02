@@ -11,7 +11,7 @@ type PostFilter struct {
 	Status    string     `json:"status"`
 	Search    string     `json:"search"`
 	AuthorID  *uuid.UUID `json:"author_id"`
-	Category  string     `json:"category"`
+	Taxonomy  string     `json:"taxonomy"`
 	StartDate *time.Time `json:"start_date"`
 	EndDate   *time.Time `json:"end_date"`
 }
@@ -72,10 +72,12 @@ type CreateTaxonomyReq struct {
 	Slug     string  `json:"slug"`
 	Type     string  `json:"type"` // 'category' or 'tag'
 	ParentID *string `json:"parent_id"` // optional parent ID for hierarchical categories
+	Order    int     `json:"order"`
 }
 
 type UpdateTaxonomyReq struct {
 	Name     string  `json:"name"`
 	Slug     string  `json:"slug"`
 	ParentID *string `json:"parent_id"`
+	Order    *int    `json:"order"`
 }

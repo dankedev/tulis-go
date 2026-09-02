@@ -300,7 +300,7 @@ func (h *PostHandler) Delete(c *fiber.Ctx) error {
 // @Param status query string false "Filter by status"
 // @Param search query string false "Filter by title search"
 // @Param author query string false "Filter by author ID"
-// @Param category query string false "Filter by category ID or slug"
+// @Param taxonomy query string false "Filter by taxonomy ID or slug"
 // @Param date_start query string false "Filter by start date (YYYY-MM-DD)"
 // @Param date_end query string false "Filter by end date (YYYY-MM-DD)"
 // @Param page query int false "Page number" default(1)
@@ -329,7 +329,7 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 	postType := c.Query("type", "")
 	status := c.Query("status", "")
 	search := c.Query("search", "")
-	category := c.Query("category", "")
+	taxonomy := c.Query("taxonomy", "")
 
 	var startDate *time.Time
 	dateStartStr := c.Query("date_start", "")
@@ -360,7 +360,7 @@ func (h *PostHandler) List(c *fiber.Ctx) error {
 		Status:    status,
 		Search:    search,
 		AuthorID:  authorID,
-		Category:  category,
+		Taxonomy:  taxonomy,
 		StartDate: startDate,
 		EndDate:   endDate,
 	}
@@ -743,7 +743,7 @@ func (h *PostHandler) CreateTaxonomy(c *fiber.Ctx) error {
 		}
 	}
 
-	tax, err := h.svc.CreateTaxonomy(c.Context(), workspaceID, req.Name, req.Slug, req.Type, parentID)
+	tax, err := h.svc.CreateTaxonomy(c.Context(), workspaceID, req.Name, req.Slug, req.Type, parentID, req.Order)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}
@@ -813,7 +813,7 @@ func (h *PostHandler) UpdateTaxonomy(c *fiber.Ctx) error {
 		}
 	}
 
-	tax, err := h.svc.UpdateTaxonomy(c.Context(), id, req.Name, req.Slug, parentID)
+	tax, err := h.svc.UpdateTaxonomy(c.Context(), id, req.Name, req.Slug, parentID, req.Order)
 	if err != nil {
 		return response.Error(c, "BAD_REQUEST", err.Error(), nil)
 	}

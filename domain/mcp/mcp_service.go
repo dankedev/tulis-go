@@ -423,7 +423,13 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 				parentID = &pu
 			}
 		}
-		t, err := s.postSvc.CreateTaxonomy(ctx, currentWorkspaceID, name, slug, taxType, parentID)
+		var order int
+		if orderVal, ok := params["order"].(float64); ok {
+			order = int(orderVal)
+		} else if orderVal, ok := params["order"].(int); ok {
+			order = orderVal
+		}
+		t, err := s.postSvc.CreateTaxonomy(ctx, currentWorkspaceID, name, slug, taxType, parentID, order)
 		if err != nil {
 			return formatResultError(err)
 		}
