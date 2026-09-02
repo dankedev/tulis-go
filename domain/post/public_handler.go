@@ -168,3 +168,38 @@ func (h *PublicHandler) ListTaxonomies(c *fiber.Ctx) error {
 
 	return response.Success(c, taxonomies, "Public taxonomies retrieved successfully")
 }
+
+// GetTaxonomyBySlug godoc
+// @Summary Get a taxonomy by slug
+// @Description Returns a single taxonomy by its slug, including children if any (public, rate-limited)
+// @Tags Public Taxonomies
+// @Accept json
+// @Produce json
+// @Param X-Workspace-ID header string true "Workspace ID"
+// @Param slug path string true "Taxonomy slug"
+// @Param type query string false "Filter by taxonomy type (category, tag)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /api/v1/public/taxonomies/{slug} [get]
+func (h *PublicHandler) GetTaxonomyBySlug(c *fiber.Ctx) error {
+	wsIDStr := c.Locals("workspace_id")
+	if wsIDStr == nil {
+		return response.Error(c, "BAD_REQUEST", "Workspace context required", nil)
+	}
+	workspaceID, err := uuid.Parse(wsIDStr.(string))
+	if err != nil {
+		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
+	}
+
+	slug := c.Params("slug")
+	taxType := c.Query("type", "")
+
+	tax, err := h.postSvc.GetTaxonomyBySlug(c.Context(), workspaceID, slug, taxType)
+	if err != nil {
+		return response.Error(c, "NOT_FOUND", "Taxonomy not found", nil)
+	}
+
+	return response.Success(c, tax, "Public taxonomy retrieved successfully")
+}
+

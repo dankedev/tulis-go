@@ -193,6 +193,18 @@ func (s *service) GetTools() []Tool {
 			},
 		},
 		{
+			Name:        "tulis_get_taxonomy",
+			Description: "Get details of a single category or tag by its slug or ID, including child categories if any.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"slug_or_id": {Type: "string", Description: "Taxonomy slug or UUID (required)"},
+					"type":       {Type: "string", Description: "Optional taxonomy type: category or tag"},
+				},
+				Required: []string{"slug_or_id"},
+			},
+		},
+		{
 			Name:        "tulis_upload_media",
 			Description: "Upload an image or file to Tulis CMS from a URL. Downloads the remote file and stores it in the media library.",
 			InputSchema: InputSchema{
@@ -494,6 +506,24 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 			reqOrder = &orderVal
 		}
 		t, err := s.postSvc.UpdateTaxonomy(ctx, taxUUID, name, slug, parentID, reqOrder)
+		if err != nil {
+			return formatResultError(err)
+		}
+		return formatResultJSON(t)
+
+	case "tulis_get_taxonomy":
+		slugOrID, _ := params["slug_or_id"].(string)
+		if slugOrID == "" {
+			return formatResultError(errors.New("slug_or_id is required"))
+		}
+		taxType, _ := params["type"].(string)
+		var t *post.Taxonomy
+		var err error
+		if uid, errParse := uuid.Parse(slugOrID); errParse == nil {
+			t, err = s.postSvc.GetTaxonomyByID(ctx, uid)
+		} else {
+			t, err = s.postSvc.GetTaxonomyBySlug(ctx, currentWorkspaceID, slugOrID, taxType)
+		}
 		if err != nil {
 			return formatResultError(err)
 		}

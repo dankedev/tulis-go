@@ -382,4 +382,62 @@ func TestMCPSlugSanitization(t *testing.T) {
 	}
 }
 
+func TestMCPGetTaxonomy(t *testing.T) {
+	_, svc, _, wsID, userID := setupTestMCP(t)
+
+	// 1. Create parent category
+	createParentReq := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_taxonomy","arguments":{"name":"Web Development","slug":"web-development","type":"category"}}`),
+	}
+	resp := svc.HandleRequest(context.Background(), createParentReq, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to create parent taxonomy: %v", resp.Error)
+	}
+	tr := resp.Result.(mcp.ToolResult)
+	var parentData struct {
+		ID   string `json:"id"`
+		Slug string `json:"slug"`
+	}
+	json.Unmarshal([]byte(tr.Content[0].Text), &parentData)
+
+	// 2. Create child category
+	createChildReq := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_create_taxonomy","arguments":{"name":"Frontend","slug":"frontend","type":"category","parent_id":"` + parentData.ID + `","order":1}}`),
+	}
+	svc.HandleRequest(context.Background(), createChildReq, wsID, userID)
+
+	// 3. Get taxonomy by slug via MCP
+	getReq := mcp.JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      3,
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"tulis_get_taxonomy","arguments":{"slug_or_id":"web-development"}}`),
+	}
+	resp = svc.HandleRequest(context.Background(), getReq, wsID, userID)
+	if resp.Error != nil {
+		t.Fatalf("failed to get taxonomy via MCP: %v", resp.Error)
+	}
+	tr = resp.Result.(mcp.ToolResult)
+	var resultData struct {
+		Slug     string `json:"slug"`
+		Children []struct {
+			Slug string `json:"slug"`
+		} `json:"children"`
+	}
+	json.Unmarshal([]byte(tr.Content[0].Text), &resultData)
+	if resultData.Slug != "web-development" {
+		t.Errorf("expected slug 'web-development', got '%s'", resultData.Slug)
+	}
+	if len(resultData.Children) != 1 || resultData.Children[0].Slug != "frontend" {
+		t.Errorf("expected 1 child 'frontend', got %+v", resultData.Children)
+	}
+}
+
+
 

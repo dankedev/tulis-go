@@ -82,6 +82,7 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Post("/api/posts/:id/revisions/:revisionId/restore", handler.RestoreRevision)
 	app.Post("/api/taxonomies", handler.CreateTaxonomy)
 	app.Get("/api/taxonomies", handler.ListTaxonomies)
+	app.Get("/api/taxonomies/slug/:slug", handler.GetTaxonomyBySlug)
 	app.Get("/api/taxonomies/:id", handler.GetTaxonomyByID)
 	app.Put("/api/taxonomies/:id", handler.UpdateTaxonomy)
 	app.Delete("/api/taxonomies/:id", handler.DeleteTaxonomy)
@@ -90,6 +91,7 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Get("/v1/posts", pubHandler.ListPosts)
 	app.Get("/v1/posts/:slugOrId", pubHandler.GetPost)
 	app.Get("/v1/taxonomies", pubHandler.ListTaxonomies)
+	app.Get("/v1/taxonomies/:slug", pubHandler.GetTaxonomyBySlug)
 
 	var firstPostID string
 	var firstPostSlug string
@@ -1298,7 +1300,7 @@ func TestPostPermissions(t *testing.T) {
 }
 
 func TestPostTypeFiltering(t *testing.T) {
-	db, _, handler := setupTestPostDB(t)
+	db, svc, handler := setupTestPostDB(t)
 
 	app := fiber.New()
 	userID := uuid.New()
@@ -1325,8 +1327,12 @@ func TestPostTypeFiltering(t *testing.T) {
 	app.Get("/api/posts", handler.List)
 	app.Put("/api/posts/:id", handler.Update)
 	app.Post("/api/taxonomies", handler.CreateTaxonomy)
+	app.Get("/api/taxonomies/slug/:slug", handler.GetTaxonomyBySlug)
 	app.Put("/api/taxonomies/:id", handler.UpdateTaxonomy)
 	app.Post("/api/post-types", handler.RegisterPostType)
+
+	pubHandler := post.NewPublicHandler(svc)
+	app.Get("/v1/taxonomies/:slug", pubHandler.GetTaxonomyBySlug)
 
 	// --- Register custom post type "project" ---
 	cptReq := post.CreatePostTypeReq{
@@ -1614,4 +1620,115 @@ func TestPostTypeFiltering(t *testing.T) {
 			t.Errorf("Expected taxonomy slug to be sanitized to 'updated-taxonomy-slug', got '%v'", taxData["slug"])
 		}
 	})
+
+	t.Run("7. Get Taxonomy by Slug with Children Tree", func(t *testing.T) {
+		// 1. Create root parent category
+		parentReq := post.CreateTaxonomyReq{
+			Name:  "Tech Programming",
+			Slug:  "tech-programming",
+			Type:  "category",
+			Order: 1,
+		}
+		pBytes, _ := json.Marshal(parentReq)
+		req := httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(pBytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Failed to create parent category: %d", resp.StatusCode)
+		}
+		var pRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&pRes)
+		parentID := pRes["data"].(map[string]interface{})["id"].(string)
+
+		// 2. Create Child 1 (order 10)
+		child1Req := post.CreateTaxonomyReq{
+			Name:     "Python",
+			Slug:     "python",
+			Type:     "category",
+			ParentID: &parentID,
+			Order:    10,
+		}
+		c1Bytes, _ := json.Marshal(child1Req)
+		req = httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(c1Bytes))
+		req.Header.Set("Content-Type", "application/json")
+		app.Test(req, -1)
+
+		// 3. Create Child 2 (order 5)
+		child2Req := post.CreateTaxonomyReq{
+			Name:     "Golang",
+			Slug:     "golang",
+			Type:     "category",
+			ParentID: &parentID,
+			Order:    5,
+		}
+		c2Bytes, _ := json.Marshal(child2Req)
+		req = httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(c2Bytes))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = app.Test(req, -1)
+		var c2Res map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&c2Res)
+		child2ID := c2Res["data"].(map[string]interface{})["id"].(string)
+
+		// 4. Create Grandchild under Golang (Child 2)
+		grandchildReq := post.CreateTaxonomyReq{
+			Name:     "Fiber Framework",
+			Slug:     "fiber-framework",
+			Type:     "category",
+			ParentID: &child2ID,
+			Order:    1,
+		}
+		gcBytes, _ := json.Marshal(grandchildReq)
+		req = httptest.NewRequest("POST", "/api/taxonomies", bytes.NewBuffer(gcBytes))
+		req.Header.Set("Content-Type", "application/json")
+		app.Test(req, -1)
+
+		// 5. Test Admin API: GET /api/taxonomies/slug/tech-programming
+		req = httptest.NewRequest("GET", "/api/taxonomies/slug/tech-programming", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 from /api/taxonomies/slug/tech-programming, got %d", resp.StatusCode)
+		}
+		var adminRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&adminRes)
+		adminData := adminRes["data"].(map[string]interface{})
+		if adminData["slug"] != "tech-programming" {
+			t.Errorf("Expected slug 'tech-programming', got '%v'", adminData["slug"])
+		}
+		children, ok := adminData["children"].([]interface{})
+		if !ok || len(children) != 2 {
+			t.Fatalf("Expected 2 direct children, got %v", adminData["children"])
+		}
+		// Check ordering: Golang (order 5) before Python (order 10)
+		childFirst := children[0].(map[string]interface{})
+		childSecond := children[1].(map[string]interface{})
+		if childFirst["slug"] != "golang" || childSecond["slug"] != "python" {
+			t.Errorf("Expected children ordered by order asc [golang, python], got [%v, %v]", childFirst["slug"], childSecond["slug"])
+		}
+		// Check grandchild under Golang
+		grandkids, ok := childFirst["children"].([]interface{})
+		if !ok || len(grandkids) != 1 {
+			t.Fatalf("Expected 1 grandchild under golang, got %v", childFirst["children"])
+		}
+		if grandkids[0].(map[string]interface{})["slug"] != "fiber-framework" {
+			t.Errorf("Expected grandchild 'fiber-framework', got '%v'", grandkids[0].(map[string]interface{})["slug"])
+		}
+
+		// 6. Test Public API: GET /v1/taxonomies/tech-programming
+		req = httptest.NewRequest("GET", "/v1/taxonomies/tech-programming", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 from public /v1/taxonomies/tech-programming, got %d", resp.StatusCode)
+		}
+		var pubRes map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&pubRes)
+		pubData := pubRes["data"].(map[string]interface{})
+		if pubData["slug"] != "tech-programming" {
+			t.Errorf("Expected public slug 'tech-programming', got '%v'", pubData["slug"])
+		}
+		pubChildren := pubData["children"].([]interface{})
+		if len(pubChildren) != 2 {
+			t.Errorf("Expected 2 public children, got %d", len(pubChildren))
+		}
+	})
 }
+

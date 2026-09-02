@@ -83,6 +83,7 @@ type PostService interface {
 	// Taxonomy
 	CreateTaxonomy(ctx context.Context, workspaceID uuid.UUID, name, slug, taxType string, parentID *uuid.UUID, order int) (*Taxonomy, error)
 	GetTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxonomy, error)
+	GetTaxonomyBySlug(ctx context.Context, workspaceID uuid.UUID, slug string, taxType ...string) (*Taxonomy, error)
 	UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID, order *int) (*Taxonomy, error)
 	DeleteTaxonomy(ctx context.Context, id uuid.UUID) error
 	ListTaxonomies(ctx context.Context, workspaceID uuid.UUID, taxType string, sortBy ...string) ([]Taxonomy, error)
@@ -668,7 +669,57 @@ func (s *postService) GetTaxonomyByID(ctx context.Context, id uuid.UUID) (*Taxon
 	if err != nil {
 		return nil, ErrTaxonomyNotFound
 	}
+	children, err := s.fetchTaxonomyChildrenTree(ctx, tax.WorkspaceID, tax.ID, tax.Type)
+	if err == nil {
+		tax.Children = children
+	}
 	return tax, nil
+}
+
+func (s *postService) GetTaxonomyBySlug(ctx context.Context, workspaceID uuid.UUID, slug string, taxType ...string) (*Taxonomy, error) {
+	tType := ""
+	if len(taxType) > 0 {
+		tType = taxType[0]
+	}
+	tax, err := s.repo.FindTaxonomyBySlug(ctx, workspaceID, slug, tType)
+	if err != nil {
+		return nil, ErrTaxonomyNotFound
+	}
+	children, err := s.fetchTaxonomyChildrenTree(ctx, workspaceID, tax.ID, tax.Type)
+	if err == nil {
+		tax.Children = children
+	}
+	return tax, nil
+}
+
+func (s *postService) fetchTaxonomyChildrenTree(ctx context.Context, workspaceID uuid.UUID, parentID uuid.UUID, taxType string) ([]Taxonomy, error) {
+	allTax, err := s.repo.ListTaxonomies(ctx, workspaceID, taxType, "order asc")
+	if err != nil {
+		return nil, err
+	}
+
+	childMap := make(map[uuid.UUID][]Taxonomy)
+	for _, item := range allTax {
+		if item.ParentID != nil {
+			childMap[*item.ParentID] = append(childMap[*item.ParentID], item)
+		}
+	}
+
+	var buildTree func(pID uuid.UUID) []Taxonomy
+	buildTree = func(pID uuid.UUID) []Taxonomy {
+		kids := childMap[pID]
+		if len(kids) == 0 {
+			return nil
+		}
+		result := make([]Taxonomy, len(kids))
+		for i, k := range kids {
+			k.Children = buildTree(k.ID)
+			result[i] = k
+		}
+		return result
+	}
+
+	return buildTree(parentID), nil
 }
 
 func (s *postService) UpdateTaxonomy(ctx context.Context, id uuid.UUID, name, slug string, parentID *uuid.UUID, order *int) (*Taxonomy, error) {

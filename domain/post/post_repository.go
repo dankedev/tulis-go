@@ -234,7 +234,11 @@ func (r *postRepository) FindTaxonomyByID(ctx context.Context, id uuid.UUID) (*T
 
 func (r *postRepository) FindTaxonomyBySlug(ctx context.Context, workspaceID uuid.UUID, slug string, taxType string) (*Taxonomy, error) {
 	var taxonomy Taxonomy
-	err := r.db.WithContext(ctx).Where("workspace_id = ? AND slug = ? AND type = ?", workspaceID, slug, taxType).First(&taxonomy).Error
+	query := r.db.WithContext(ctx).Where("workspace_id = ? AND slug = ?", workspaceID, slug)
+	if taxType != "" {
+		query = query.Where("type = ?", taxType)
+	}
+	err := query.First(&taxonomy).Error
 	if err != nil {
 		return nil, err
 	}
