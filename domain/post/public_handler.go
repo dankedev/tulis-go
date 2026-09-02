@@ -192,11 +192,23 @@ func (h *PublicHandler) GetTaxonomyBySlug(c *fiber.Ctx) error {
 		return response.Error(c, "BAD_REQUEST", "Invalid workspace ID", nil)
 	}
 
-	slug := c.Params("slug")
+	slugOrID := c.Params("slug")
+	if slugOrID == "" {
+		slugOrID = c.Params("slugOrId")
+	}
+	if slugOrID == "" {
+		slugOrID = c.Params("id")
+	}
 	taxType := c.Query("type", "")
 
-	tax, err := h.postSvc.GetTaxonomyBySlug(c.Context(), workspaceID, slug, taxType)
-	if err != nil {
+	var tax *Taxonomy
+	if id, errParse := uuid.Parse(slugOrID); errParse == nil {
+		tax, err = h.postSvc.GetTaxonomyByID(c.Context(), id)
+	} else {
+		tax, err = h.postSvc.GetTaxonomyBySlug(c.Context(), workspaceID, slugOrID, taxType)
+	}
+
+	if err != nil || tax == nil {
 		return response.Error(c, "NOT_FOUND", "Taxonomy not found", nil)
 	}
 

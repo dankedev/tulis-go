@@ -91,6 +91,7 @@ func TestPostServiceAndHandler(t *testing.T) {
 	app.Get("/v1/posts", pubHandler.ListPosts)
 	app.Get("/v1/posts/:slugOrId", pubHandler.GetPost)
 	app.Get("/v1/taxonomies", pubHandler.ListTaxonomies)
+	app.Get("/v1/taxonomies/slug/:slug", pubHandler.GetTaxonomyBySlug)
 	app.Get("/v1/taxonomies/:slug", pubHandler.GetTaxonomyBySlug)
 
 	var firstPostID string
@@ -1332,6 +1333,7 @@ func TestPostTypeFiltering(t *testing.T) {
 	app.Post("/api/post-types", handler.RegisterPostType)
 
 	pubHandler := post.NewPublicHandler(svc)
+	app.Get("/v1/taxonomies/slug/:slug", pubHandler.GetTaxonomyBySlug)
 	app.Get("/v1/taxonomies/:slug", pubHandler.GetTaxonomyBySlug)
 
 	// --- Register custom post type "project" ---
@@ -1728,6 +1730,13 @@ func TestPostTypeFiltering(t *testing.T) {
 		pubChildren := pubData["children"].([]interface{})
 		if len(pubChildren) != 2 {
 			t.Errorf("Expected 2 public children, got %d", len(pubChildren))
+		}
+
+		// 7. Test Public API with /slug/ prefix: GET /v1/taxonomies/slug/tech-programming
+		req = httptest.NewRequest("GET", "/v1/taxonomies/slug/tech-programming", nil)
+		resp, _ = app.Test(req, -1)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 from public /v1/taxonomies/slug/tech-programming, got %d", resp.StatusCode)
 		}
 	})
 }

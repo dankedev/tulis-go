@@ -8,6 +8,7 @@ import (
 func RegisterTaxonomyRoutes(publicApi fiber.Router, tenantGroup fiber.Router, postHandler *post.PostHandler, publicPostHandler *post.PublicHandler) {
 	// Public Taxonomy Routes
 	publicApi.Get("/taxonomies", publicPostHandler.ListTaxonomies)
+	publicApi.Get("/taxonomies/slug/:slug", publicPostHandler.GetTaxonomyBySlug)
 	publicApi.Get("/taxonomies/:slug", publicPostHandler.GetTaxonomyBySlug)
 
 	// Post Taxonomies
