@@ -7,26 +7,46 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ApiKeyAuth validates X-API-Key header and injects workspace context.
+// ApiKeyAuth validates X-API-Key header, Bearer token, or query parameter, and injects workspace context.
 // Used for MCP and headless API access.
 func ApiKeyAuth(apiKeySvc *apikey.Service) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		key := c.Get("X-API-Key")
+		key := strings.TrimSpace(c.Get("X-API-Key"))
 		if key == "" {
-			// Fallback: Authorization: Bearer tulis_sk_...
-			auth := c.Get("Authorization")
-			if strings.HasPrefix(auth, "Bearer tulis_sk_") {
-				key = strings.TrimPrefix(auth, "Bearer ")
+			// Fallback: Authorization: Bearer tulis_sk_... (JWT tokens do not have this prefix and pass through to AuthGuard)
+			auth := strings.TrimSpace(c.Get("Authorization"))
+			if strings.HasPrefix(strings.ToLower(auth), "bearer tulis_sk_") {
+				key = strings.TrimSpace(auth[7:])
 			}
 		}
 
 		if key == "" {
-			// No API key — pass through to next handler (might use JWT)
+			// Fallback: query params (commonly used by SSE / EventSource clients)
+			key = strings.TrimSpace(c.Query("apiKey"))
+			if key == "" {
+				key = strings.TrimSpace(c.Query("api_key"))
+			}
+			if key == "" {
+				key = strings.TrimSpace(c.Query("token"))
+			}
+		}
+
+		if key == "" {
+			// No API key — pass through to next handler (might use JWT or optional auth)
 			return c.Next()
 		}
 
 		k, err := apiKeySvc.Validate(c.Context(), key)
 		if err != nil {
+			if strings.Contains(c.Path(), "mcp") {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"jsonrpc": "2.0",
+					"error": fiber.Map{
+						"code":    -32000,
+						"message": "Invalid or expired API key",
+					},
+				})
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"status":  401,
 				"message": "Invalid or expired API key",

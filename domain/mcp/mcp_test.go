@@ -1,9 +1,11 @@
 package mcp_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -436,6 +438,68 @@ func TestMCPGetTaxonomy(t *testing.T) {
 	}
 	if len(resultData.Children) != 1 || resultData.Children[0].Slug != "frontend" {
 		t.Errorf("expected 1 child 'frontend', got %+v", resultData.Children)
+	}
+}
+
+func TestMCPNotificationNoResponse(t *testing.T) {
+	_, _, handler, _, _ := setupTestMCP(t)
+
+	app := fiber.New()
+	app.Post("/mcp", handler.HandlePost)
+
+	// Send notification without ID
+	reqBody := `{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}`
+	httpReq := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewBufferString(reqBody))
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(httpReq)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("expected status 202 Accepted for notification, got %d", resp.StatusCode)
+	}
+}
+
+func TestMCPSSEEndpointEvent(t *testing.T) {
+	_, _, handler, _, _ := setupTestMCP(t)
+
+	app := fiber.New()
+	app.Get("/mcp/sse", handler.HandleSSE)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		_ = app.Listener(ln)
+	}()
+
+	addr := ln.Addr().String()
+	resp, err := http.Get("http://" + addr + "/mcp/sse")
+	if err != nil {
+		t.Fatalf("failed to connect to SSE: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200 OK for SSE, got %d", resp.StatusCode)
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "text/event-stream" {
+		t.Errorf("expected Content-Type text/event-stream, got %s", contentType)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("failed to read first line of SSE: %v", err)
+	}
+	if line != "event: endpoint\n" {
+		t.Errorf("expected 'event: endpoint\\n', got %q", line)
 	}
 }
 

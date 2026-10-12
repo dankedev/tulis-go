@@ -289,6 +289,11 @@ func (s *service) HandleRequest(ctx context.Context, req JSONRPCRequest, current
 		}
 		resp.Result = s.executeTool(ctx, params.Name, params.Arguments, currentWorkspaceID, userID)
 	default:
+		// Generic notifications handler
+		if strings.HasPrefix(req.Method, "notifications/") {
+			resp.Result = map[string]any{}
+			return resp
+		}
 		// Fallback: Some clients/gateways call tool names directly as JSON-RPC methods (e.g. method: "tulis_list_posts")
 		if strings.HasPrefix(req.Method, "tulis_") {
 			resp.Result = s.executeTool(ctx, req.Method, req.Params, currentWorkspaceID, userID)
@@ -301,6 +306,22 @@ func (s *service) HandleRequest(ctx context.Context, req JSONRPCRequest, current
 }
 
 func (s *service) executeTool(ctx context.Context, name string, args json.RawMessage, currentWorkspaceID uuid.UUID, userID uuid.UUID) ToolResult {
+	// Auto-resolve workspace if not set
+	if currentWorkspaceID == uuid.Nil {
+		all, err := s.wsSvc.ListAllWorkspaces(ctx)
+		if err == nil && len(all) > 0 {
+			currentWorkspaceID = all[0].ID
+		}
+	}
+
+	// Auto-resolve user ID from workspace members if not set
+	if userID == uuid.Nil && currentWorkspaceID != uuid.Nil {
+		members, err := s.wsSvc.ListMembers(ctx, currentWorkspaceID)
+		if err == nil && len(members) > 0 {
+			userID = members[0].UserID
+		}
+	}
+
 	var params map[string]any
 	if len(args) > 0 {
 		_ = json.Unmarshal(args, &params)
@@ -545,25 +566,36 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 	case "tulis_list_workspaces":
 		if userID != uuid.Nil {
 			workspaces, err := s.wsSvc.ListWorkspaces(ctx, userID)
-			if err != nil {
-				return formatResultError(err)
+			if err == nil && len(workspaces) > 0 {
+				return formatResultJSON(workspaces)
 			}
-			return formatResultJSON(workspaces)
 		}
-		ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
+		if currentWorkspaceID != uuid.Nil {
+			ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
+			if err == nil && ws != nil {
+				return formatResultJSON([]any{ws})
+			}
+		}
+		all, err := s.wsSvc.ListAllWorkspaces(ctx)
 		if err != nil {
 			return formatResultError(err)
 		}
-		return formatResultJSON([]any{ws})
+		return formatResultJSON(all)
 
 	case "tulis_get_current_workspace":
-		ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
-		if err != nil {
-			return formatResultJSON(map[string]any{
-				"active_workspace_id": currentWorkspaceID.String(),
-			})
+		if currentWorkspaceID != uuid.Nil {
+			ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
+			if err == nil {
+				return formatResultJSON(ws)
+			}
 		}
-		return formatResultJSON(ws)
+		all, err := s.wsSvc.ListAllWorkspaces(ctx)
+		if err == nil && len(all) > 0 {
+			return formatResultJSON(all[0])
+		}
+		return formatResultJSON(map[string]any{
+			"active_workspace_id": currentWorkspaceID.String(),
+		})
 
 	case "tulis_switch_workspace":
 		wsIDStr, _ := params["workspace_id"].(string)
