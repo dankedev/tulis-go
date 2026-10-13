@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,6 +32,8 @@ type MediaService interface {
 	DeleteMedia(ctx context.Context, id uuid.UUID) error
 	ListMedia(ctx context.Context, workspaceID uuid.UUID, page, perPage int, search string) ([]Media, int64, error)
 }
+
+var remoteFetchClient = newRemoteFetchClient()
 
 type mediaService struct {
 	repo    MediaRepository
@@ -145,7 +148,15 @@ func (s *mediaService) ListMedia(ctx context.Context, workspaceID uuid.UUID, pag
 
 // UploadFromURL downloads a file from a remote URL and stores it in the media library.
 func (s *mediaService) UploadFromURL(ctx context.Context, workspaceID uuid.UUID, fileURL, altText, caption string) (*Media, error) {
-	resp, err := http.Get(fileURL)
+	u, err := url.Parse(fileURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+		return nil, errors.New("file_url must be a valid http(s) URL")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, errors.New("invalid file_url")
+	}
+	resp, err := remoteFetchClient.Do(req)
 	if err != nil {
 		return nil, errors.New("failed to download file: " + err.Error())
 	}
@@ -155,9 +166,12 @@ func (s *mediaService) UploadFromURL(ctx context.Context, workspaceID uuid.UUID,
 		return nil, errors.New("remote server returned status " + resp.Status)
 	}
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 50*1024*1024)) // 50MB max
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxRemoteFileSize+1))
 	if err != nil {
 		return nil, errors.New("failed to read downloaded file: " + err.Error())
+	}
+	if len(data) > maxRemoteFileSize {
+		return nil, errors.New("remote file exceeds the 50MB limit")
 	}
 
 	mimeType := resp.Header.Get("Content-Type")
@@ -165,7 +179,7 @@ func (s *mediaService) UploadFromURL(ctx context.Context, workspaceID uuid.UUID,
 		mimeType = "application/octet-stream"
 	}
 
-	filename := filepath.Base(fileURL)
+	filename := filepath.Base(u.Path)
 	if filename == "" || filename == "." || filename == "/" {
 		filename = "download"
 	}

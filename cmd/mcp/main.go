@@ -43,12 +43,12 @@ func main() {
 
 	// Try probing HTTP endpoint first
 	mcpEndpoint := apiURL + "/mcp"
-	httpHealthy := checkHTTPHealth(httpClient, mcpEndpoint)
+	httpHealthy := checkHTTPHealth(httpClient, mcpEndpoint, apiKey)
 
 	var directService mcp.Service
 	if !httpHealthy {
 		// Attempt direct database fallback if HTTP is offline
-		fmt.Fprintf(os.Stderr, "[tulis-mcp] HTTP backend at %s not responding. Attempting in-process database mode...\n", apiURL)
+		fmt.Fprintf(os.Stderr, "[tulis-mcp] HTTP backend at %s not responding. Trying in-process database mode (needs TULIS_MCP_DIRECT=true)...\n", apiURL)
 		directService = initDirectService()
 		if directService != nil {
 			fmt.Fprintf(os.Stderr, "[tulis-mcp] In-process database mode initialized successfully.\n")
@@ -150,22 +150,36 @@ func main() {
 	}
 }
 
-func checkHTTPHealth(client *http.Client, endpoint string) bool {
+// checkHTTPHealth reports whether the backend answers at all. Any HTTP response counts (even 401),
+// so a bad key surfaces as an auth error instead of silently switching to database mode.
+func checkHTTPHealth(client *http.Client, endpoint, apiKey string) bool {
 	probeBody := []byte(`{"jsonrpc":"2.0","id":"_probe","method":"initialize","params":{"protocolVersion":"2024-11-05"}}`)
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(probeBody))
 	if err != nil {
 		return false
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		req.Header.Set("X-API-Key", apiKey)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
 	resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
+	return resp.StatusCode < http.StatusInternalServerError
 }
 
+// initDirectService opens the database directly, bypassing API-key auth and scopes. It is
+// opt-in (TULIS_MCP_DIRECT=true) and needs TULIS_WORKSPACE_ID so it never acts on an arbitrary workspace.
 func initDirectService() mcp.Service {
+	if os.Getenv("TULIS_MCP_DIRECT") != "true" {
+		return nil
+	}
+	if _, err := uuid.Parse(os.Getenv("TULIS_WORKSPACE_ID")); err != nil {
+		fmt.Fprintf(os.Stderr, "[tulis-mcp] TULIS_MCP_DIRECT requires a valid TULIS_WORKSPACE_ID\n")
+		return nil
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "[tulis-mcp] Recovered during in-process init: %v\n", r)

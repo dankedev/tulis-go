@@ -12,64 +12,56 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+type sseSession struct {
+	ch     chan string
+	done   chan struct{}
+	keyID  string // API key that opened the stream; only it may post messages to the session
+	closed sync.Once
+}
+
+func (ss *sseSession) close() { ss.closed.Do(func() { close(ss.done) }) }
+
 type Handler struct {
-	svc               Service
-	sseClientsMu      sync.RWMutex
-	sseClients        map[string]chan string
-	sessionWorkspaces map[string]uuid.UUID
+	svc          Service
+	sseClientsMu sync.RWMutex
+	sseClients   map[string]*sseSession
 }
 
 func NewHandler(svc Service) *Handler {
 	return &Handler{
-		svc:               svc,
-		sseClients:        make(map[string]chan string),
-		sessionWorkspaces: make(map[string]uuid.UUID),
+		svc:        svc,
+		sseClients: make(map[string]*sseSession),
 	}
 }
 
-// resolveContext extracts workspace_id and user_id from Fiber context
-func (h *Handler) resolveContext(c *fiber.Ctx) (uuid.UUID, uuid.UUID) {
-	var workspaceID uuid.UUID
-	var userID uuid.UUID
-
-	// Check if session has a switched workspace context
-	sessionID := c.Query("sessionId")
-	if sessionID != "" {
-		h.sseClientsMu.RLock()
-		if wsID, exists := h.sessionWorkspaces[sessionID]; exists && wsID != uuid.Nil {
-			workspaceID = wsID
-		}
-		h.sseClientsMu.RUnlock()
+// authenticate requires a request authenticated by an API key (set by middleware.ApiKeyAuth).
+// The workspace is always the key's own workspace; headers and query parameters are ignored.
+func (h *Handler) authenticate(c *fiber.Ctx) (Principal, string, bool) {
+	if c.Locals("auth_method") != "api_key" {
+		return Principal{}, "", false
 	}
-
-	if workspaceID == uuid.Nil {
-		if wsHeader := c.Get("X-Workspace-ID"); wsHeader != "" {
-			if u, err := uuid.Parse(wsHeader); err == nil {
-				workspaceID = u
-			}
-		}
+	wsID, err := uuid.Parse(fmt.Sprint(c.Locals("workspace_id")))
+	if err != nil || wsID == uuid.Nil {
+		return Principal{}, "", false
 	}
+	scopes, _ := c.Locals("api_key_scopes").(string)
+	keyID := fmt.Sprint(c.Locals("api_key_id"))
+	return Principal{WorkspaceID: wsID, Scopes: scopes}, keyID, true
+}
 
-	if workspaceID == uuid.Nil {
-		if wsLoc := c.Locals("workspace_id"); wsLoc != nil {
-			if u, err := uuid.Parse(fmt.Sprint(wsLoc)); err == nil {
-				workspaceID = u
-			}
-		}
-	}
-
-	if userLoc := c.Locals("user_id"); userLoc != nil {
-		if u, err := uuid.Parse(fmt.Sprint(userLoc)); err == nil {
-			userID = u
-		}
-	}
-
-	return workspaceID, userID
+func unauthorized(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusUnauthorized).JSON(JSONRPCResponse{
+		JSONRPC: "2.0",
+		Error:   &RPCError{Code: -32000, Message: "Authentication required: provide a valid API key via X-API-Key or Authorization: Bearer"},
+	})
 }
 
 // HandlePost handles Streamable HTTP JSON-RPC POST requests (/mcp or /api/mcp)
 func (h *Handler) HandlePost(c *fiber.Ctx) error {
-	workspaceID, userID := h.resolveContext(c)
+	principal, _, ok := h.authenticate(c)
+	if !ok {
+		return unauthorized(c)
+	}
 
 	var req JSONRPCRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -79,7 +71,7 @@ func (h *Handler) HandlePost(c *fiber.Ctx) error {
 		})
 	}
 
-	resp := h.svc.HandleRequest(c.Context(), req, workspaceID, userID)
+	resp := h.svc.HandleRequest(WithPrincipal(c.Context(), principal), req, principal.WorkspaceID, uuid.Nil)
 
 	// JSON-RPC 2.0: Notifications (id == nil) MUST NOT return a response object
 	if req.ID == nil {
@@ -91,15 +83,19 @@ func (h *Handler) HandlePost(c *fiber.Ctx) error {
 
 // HandleSSE handles SSE connection setup (GET /mcp or GET /mcp/sse) for clients using SSE transport
 func (h *Handler) HandleSSE(c *fiber.Ctx) error {
+	_, keyID, ok := h.authenticate(c)
+	if !ok {
+		return unauthorized(c)
+	}
 	sessionID := uuid.New().String()
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
 	c.Set("Transfer-Encoding", "chunked")
 
-	msgChan := make(chan string, 32)
+	session := &sseSession{ch: make(chan string, 32), done: make(chan struct{}), keyID: keyID}
 	h.sseClientsMu.Lock()
-	h.sseClients[sessionID] = msgChan
+	h.sseClients[sessionID] = session
 	h.sseClientsMu.Unlock()
 
 	endpointPath := "/mcp/messages"
@@ -111,10 +107,10 @@ func (h *Handler) HandleSSE(c *fiber.Ctx) error {
 	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 		// Clean up only when this stream writer exits
 		defer func() {
+			// Never close ch: senders select on done instead, so they cannot panic.
+			session.close()
 			h.sseClientsMu.Lock()
 			delete(h.sseClients, sessionID)
-			delete(h.sessionWorkspaces, sessionID)
-			close(msgChan)
 			h.sseClientsMu.Unlock()
 		}()
 
@@ -130,10 +126,9 @@ func (h *Handler) HandleSSE(c *fiber.Ctx) error {
 
 		for {
 			select {
-			case msg, ok := <-msgChan:
-				if !ok {
-					return
-				}
+			case <-session.done:
+				return
+			case msg := <-session.ch:
 				fmt.Fprintf(w, "event: message\ndata: %s\n\n", msg)
 				if err := w.Flush(); err != nil {
 					return
@@ -152,6 +147,11 @@ func (h *Handler) HandleSSE(c *fiber.Ctx) error {
 
 // HandleSSEMessages handles messages sent by the client during an SSE session (POST /mcp/messages)
 func (h *Handler) HandleSSEMessages(c *fiber.Ctx) error {
+	principal, keyID, ok := h.authenticate(c)
+	if !ok {
+		return unauthorized(c)
+	}
+
 	sessionID := c.Query("sessionId")
 	if sessionID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -159,7 +159,13 @@ func (h *Handler) HandleSSEMessages(c *fiber.Ctx) error {
 		})
 	}
 
-	workspaceID, userID := h.resolveContext(c)
+	h.sseClientsMu.RLock()
+	session, exists := h.sseClients[sessionID]
+	h.sseClientsMu.RUnlock()
+	// Report a foreign session as missing so session IDs cannot be probed.
+	if !exists || session.keyID != keyID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "unknown session"})
+	}
 
 	var req JSONRPCRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -169,45 +175,16 @@ func (h *Handler) HandleSSEMessages(c *fiber.Ctx) error {
 		})
 	}
 
-	resp := h.svc.HandleRequest(c.Context(), req, workspaceID, userID)
-
-	// If the request was a switch workspace tool call, track it for this session
-	if req.Method == "tools/call" || req.Method == "tulis_switch_workspace" {
-		var params ToolCallParams
-		_ = json.Unmarshal(req.Params, &params)
-		targetMethod := params.Name
-		targetArgs := params.Arguments
-		if req.Method == "tulis_switch_workspace" {
-			targetMethod = "tulis_switch_workspace"
-			targetArgs = req.Params
-		}
-		if targetMethod == "tulis_switch_workspace" {
-			var args map[string]any
-			_ = json.Unmarshal(targetArgs, &args)
-			if wsStr, ok := args["workspace_id"].(string); ok {
-				if parsedWS, err := uuid.Parse(wsStr); err == nil {
-					h.sseClientsMu.Lock()
-					h.sessionWorkspaces[sessionID] = parsedWS
-					h.sseClientsMu.Unlock()
-				}
-			}
-		}
-	}
+	resp := h.svc.HandleRequest(WithPrincipal(c.Context(), principal), req, principal.WorkspaceID, uuid.Nil)
 
 	// JSON-RPC 2.0: Notifications (id == nil) MUST NOT receive a response
 	if req.ID != nil {
 		respBytes, _ := json.Marshal(resp)
-
-		h.sseClientsMu.RLock()
-		clientChan, exists := h.sseClients[sessionID]
-		h.sseClientsMu.RUnlock()
-
-		if exists {
-			select {
-			case clientChan <- string(respBytes):
-			default:
-				// If channel buffer is full, drop or log without deadlock
-			}
+		select {
+		case session.ch <- string(respBytes):
+		case <-session.done:
+		default:
+			// Buffer full: drop rather than block the request.
 		}
 	}
 

@@ -20,14 +20,13 @@ func ApiKeyAuth(apiKeySvc *apikey.Service) fiber.Handler {
 			}
 		}
 
-		if key == "" {
-			// Fallback: query params (commonly used by SSE / EventSource clients)
+		if key == "" && strings.Contains(c.Path(), "/mcp") {
+			// Fallback for SSE/EventSource clients that cannot set headers. Only honoured on MCP
+			// paths: elsewhere "token" collides with unrelated query params (e.g. email verification)
+			// and would turn them into failed API-key logins.
 			key = strings.TrimSpace(c.Query("apiKey"))
 			if key == "" {
 				key = strings.TrimSpace(c.Query("api_key"))
-			}
-			if key == "" {
-				key = strings.TrimSpace(c.Query("token"))
 			}
 		}
 

@@ -71,9 +71,9 @@ type Service interface {
 }
 
 type service struct {
-	postSvc      post.PostService
-	wsSvc        workspace.WorkspaceService
-	mediaSvc     media.MediaService
+	postSvc  post.PostService
+	wsSvc    workspace.WorkspaceService
+	mediaSvc media.MediaService
 }
 
 func NewService(postSvc post.PostService, wsSvc workspace.WorkspaceService, mediaSvc media.MediaService) Service {
@@ -306,16 +306,22 @@ func (s *service) HandleRequest(ctx context.Context, req JSONRPCRequest, current
 }
 
 func (s *service) executeTool(ctx context.Context, name string, args json.RawMessage, currentWorkspaceID uuid.UUID, userID uuid.UUID) ToolResult {
-	// Auto-resolve workspace if not set
+	// An API key is bound to exactly one workspace: never trust a workspace taken from
+	// headers, sessions or tool arguments for authenticated callers.
+	if p, ok := principalFrom(ctx); ok {
+		currentWorkspaceID = p.WorkspaceID
+	}
+	if err := authorizeTool(ctx, name); err != nil {
+		return formatResultError(err)
+	}
 	if currentWorkspaceID == uuid.Nil {
-		all, err := s.wsSvc.ListAllWorkspaces(ctx)
-		if err == nil && len(all) > 0 {
-			currentWorkspaceID = all[0].ID
-		}
+		return formatResultError(errors.New("no active workspace: authenticate with an API key or set TULIS_WORKSPACE_ID"))
 	}
 
-	// Auto-resolve user ID from workspace members if not set
-	if userID == uuid.Nil && currentWorkspaceID != uuid.Nil {
+	callerUserID := userID
+
+	// Auto-resolve user ID (used as post author) from the active workspace's members if not set
+	if userID == uuid.Nil {
 		members, err := s.wsSvc.ListMembers(ctx, currentWorkspaceID)
 		if err == nil && len(members) > 0 {
 			userID = members[0].UserID
@@ -369,7 +375,7 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 			return formatResultError(errors.New("id_or_slug is required"))
 		}
 		if postUUID, err := uuid.Parse(idOrSlug); err == nil {
-			p, err := s.postSvc.GetPostByID(ctx, postUUID)
+			p, err := s.postInWorkspace(ctx, postUUID, currentWorkspaceID)
 			if err != nil {
 				return formatResultError(err)
 			}
@@ -403,7 +409,15 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		var taxStrings []string
 		if rawTax, ok := params["taxonomy_ids"].([]any); ok {
 			for _, t := range rawTax {
-				taxStrings = append(taxStrings, fmt.Sprint(t))
+				id := fmt.Sprint(t)
+				tid, err := uuid.Parse(id)
+				if err != nil {
+					return formatResultError(fmt.Errorf("invalid taxonomy id %q", id))
+				}
+				if _, err := s.taxonomyInWorkspace(ctx, tid, currentWorkspaceID); err != nil {
+					return formatResultError(fmt.Errorf("taxonomy %s: %w", id, err))
+				}
+				taxStrings = append(taxStrings, id)
 			}
 		}
 
@@ -437,6 +451,9 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		postUUID, err := uuid.Parse(idStr)
 		if err != nil {
 			return formatResultError(errors.New("valid post UUID id is required"))
+		}
+		if _, err := s.postInWorkspace(ctx, postUUID, currentWorkspaceID); err != nil {
+			return formatResultError(err)
 		}
 
 		req := post.UpdatePostReq{}
@@ -487,11 +504,9 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		name, _ := params["name"].(string)
 		taxType, _ := params["type"].(string)
 		slug, _ := params["slug"].(string)
-		var parentID *uuid.UUID
-		if pidStr, ok := params["parent_id"].(string); ok && pidStr != "" {
-			if pu, err := uuid.Parse(pidStr); err == nil {
-				parentID = &pu
-			}
+		parentID, err := s.parseParentID(ctx, params["parent_id"], currentWorkspaceID)
+		if err != nil {
+			return formatResultError(err)
 		}
 		var order int
 		if orderVal, ok := params["order"].(float64); ok {
@@ -511,13 +526,14 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		if err != nil {
 			return formatResultError(errors.New("valid taxonomy UUID id is required"))
 		}
+		if _, err := s.taxonomyInWorkspace(ctx, taxUUID, currentWorkspaceID); err != nil {
+			return formatResultError(err)
+		}
 		name, _ := params["name"].(string)
 		slug, _ := params["slug"].(string)
-		var parentID *uuid.UUID
-		if pidStr, ok := params["parent_id"].(string); ok && pidStr != "" {
-			if pu, err := uuid.Parse(pidStr); err == nil {
-				parentID = &pu
-			}
+		parentID, err := s.parseParentID(ctx, params["parent_id"], currentWorkspaceID)
+		if err != nil {
+			return formatResultError(err)
 		}
 		var reqOrder *int
 		if orderVal, ok := params["order"].(float64); ok {
@@ -541,7 +557,7 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		var t *post.Taxonomy
 		var err error
 		if uid, errParse := uuid.Parse(slugOrID); errParse == nil {
-			t, err = s.postSvc.GetTaxonomyByID(ctx, uid)
+			t, err = s.taxonomyInWorkspace(ctx, uid, currentWorkspaceID)
 		} else {
 			t, err = s.postSvc.GetTaxonomyBySlug(ctx, currentWorkspaceID, slugOrID, taxType)
 		}
@@ -564,44 +580,35 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		return formatResultJSON(m)
 
 	case "tulis_list_workspaces":
-		if userID != uuid.Nil {
-			workspaces, err := s.wsSvc.ListWorkspaces(ctx, userID)
-			if err == nil && len(workspaces) > 0 {
-				return formatResultJSON(workspaces)
+		// Only workspaces the caller may act in: the key's workspace, or the user's memberships.
+		if _, bound := principalFrom(ctx); !bound && callerUserID != uuid.Nil {
+			workspaces, err := s.wsSvc.ListWorkspaces(ctx, callerUserID)
+			if err != nil {
+				return formatResultError(err)
 			}
+			return formatResultJSON(workspaces)
 		}
-		if currentWorkspaceID != uuid.Nil {
-			ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
-			if err == nil && ws != nil {
-				return formatResultJSON([]any{ws})
-			}
-		}
-		all, err := s.wsSvc.ListAllWorkspaces(ctx)
+		ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
 		if err != nil {
 			return formatResultError(err)
 		}
-		return formatResultJSON(all)
+		return formatResultJSON([]any{ws})
 
 	case "tulis_get_current_workspace":
-		if currentWorkspaceID != uuid.Nil {
-			ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
-			if err == nil {
-				return formatResultJSON(ws)
-			}
+		ws, err := s.wsSvc.GetWorkspaceByID(ctx, currentWorkspaceID)
+		if err != nil {
+			return formatResultError(err)
 		}
-		all, err := s.wsSvc.ListAllWorkspaces(ctx)
-		if err == nil && len(all) > 0 {
-			return formatResultJSON(all[0])
-		}
-		return formatResultJSON(map[string]any{
-			"active_workspace_id": currentWorkspaceID.String(),
-		})
+		return formatResultJSON(ws)
 
 	case "tulis_switch_workspace":
 		wsIDStr, _ := params["workspace_id"].(string)
 		wsUUID, err := uuid.Parse(wsIDStr)
 		if err != nil {
 			return formatResultError(errors.New("valid workspace_id UUID is required"))
+		}
+		if err := s.authorizeWorkspace(ctx, wsUUID, callerUserID); err != nil {
+			return formatResultError(err)
 		}
 		ws, err := s.wsSvc.GetWorkspaceByID(ctx, wsUUID)
 		if err != nil {
@@ -616,9 +623,14 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 	case "tulis_list_workspace_members":
 		targetWS := currentWorkspaceID
 		if wsIDStr, ok := params["workspace_id"].(string); ok && strings.TrimSpace(wsIDStr) != "" {
-			if parsedWS, err := uuid.Parse(wsIDStr); err == nil {
-				targetWS = parsedWS
+			parsedWS, err := uuid.Parse(strings.TrimSpace(wsIDStr))
+			if err != nil {
+				return formatResultError(errors.New("workspace_id must be a valid UUID"))
 			}
+			if err := s.authorizeWorkspace(ctx, parsedWS, callerUserID); err != nil {
+				return formatResultError(err)
+			}
+			targetWS = parsedWS
 		}
 		members, err := s.wsSvc.ListMembers(ctx, targetWS)
 		if err != nil {
@@ -648,4 +660,61 @@ func formatResultError(err error) ToolResult {
 		IsError: true,
 		Content: []ToolContent{{Type: "text", Text: "Error: " + err.Error()}},
 	}
+}
+
+// postInWorkspace loads a post by ID and hides it when it belongs to another workspace.
+func (s *service) postInWorkspace(ctx context.Context, id, workspaceID uuid.UUID) (*post.Post, error) {
+	p, err := s.postSvc.GetPostByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if p.WorkspaceID != workspaceID {
+		return nil, post.ErrPostNotFound
+	}
+	return p, nil
+}
+
+// taxonomyInWorkspace loads a taxonomy by ID and hides it when it belongs to another workspace.
+func (s *service) taxonomyInWorkspace(ctx context.Context, id, workspaceID uuid.UUID) (*post.Taxonomy, error) {
+	t, err := s.postSvc.GetTaxonomyByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if t.WorkspaceID != workspaceID {
+		return nil, post.ErrTaxonomyNotFound
+	}
+	return t, nil
+}
+
+// parseParentID validates an optional parent taxonomy id and that it lives in the workspace.
+func (s *service) parseParentID(ctx context.Context, raw any, workspaceID uuid.UUID) (*uuid.UUID, error) {
+	str, _ := raw.(string)
+	if str == "" {
+		return nil, nil
+	}
+	pu, err := uuid.Parse(str)
+	if err != nil {
+		return nil, fmt.Errorf("parent_id %q is not a valid UUID", str)
+	}
+	if _, err := s.taxonomyInWorkspace(ctx, pu, workspaceID); err != nil {
+		return nil, fmt.Errorf("parent_id: %w", err)
+	}
+	return &pu, nil
+}
+
+// authorizeWorkspace checks the caller may act in target: an API key only in its own
+// workspace; a user-backed caller only in workspaces they are a member of.
+func (s *service) authorizeWorkspace(ctx context.Context, target, callerUserID uuid.UUID) error {
+	if p, ok := principalFrom(ctx); ok {
+		if target != p.WorkspaceID {
+			return errors.New("forbidden: this API key is bound to a different workspace")
+		}
+		return nil
+	}
+	if callerUserID != uuid.Nil {
+		if _, err := s.wsSvc.GetMember(ctx, target, callerUserID); err != nil {
+			return errors.New("forbidden: you are not a member of that workspace")
+		}
+	}
+	return nil
 }

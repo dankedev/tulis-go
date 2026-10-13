@@ -151,10 +151,7 @@ func TestMCPHandlePostHTTP(t *testing.T) {
 	_, _, handler, wsID, _ := setupTestMCP(t)
 
 	app := fiber.New()
-	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("workspace_id", wsID.String())
-		return c.Next()
-	})
+	useAPIKey(app, wsID, "content:read content:write")
 	app.Post("/mcp", handler.HandlePost)
 
 	payload := `{"jsonrpc":"2.0","id":10,"method":"tools/list"}`
@@ -442,9 +439,10 @@ func TestMCPGetTaxonomy(t *testing.T) {
 }
 
 func TestMCPNotificationNoResponse(t *testing.T) {
-	_, _, handler, _, _ := setupTestMCP(t)
+	_, _, handler, wsID, _ := setupTestMCP(t)
 
 	app := fiber.New()
+	useAPIKey(app, wsID, "content:read")
 	app.Post("/mcp", handler.HandlePost)
 
 	// Send notification without ID
@@ -463,9 +461,10 @@ func TestMCPNotificationNoResponse(t *testing.T) {
 }
 
 func TestMCPSSEEndpointEvent(t *testing.T) {
-	_, _, handler, _, _ := setupTestMCP(t)
+	_, _, handler, wsID, _ := setupTestMCP(t)
 
 	app := fiber.New()
+	useAPIKey(app, wsID, "content:read")
 	app.Get("/mcp/sse", handler.HandleSSE)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
