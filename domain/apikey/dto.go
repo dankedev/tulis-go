@@ -4,9 +4,9 @@ import "github.com/google/uuid"
 
 // CreateApiKeyReq is the request body for generating a new API key.
 type CreateApiKeyReq struct {
-	Name    string `json:"name"`
-	Scopes  string `json:"scopes"` // "content:read content:write admin"
-	ExpiresInDays int `json:"expires_in_days,omitempty"` // 0 = never
+	Name          string `json:"name"`
+	Scopes        string `json:"scopes"`                    // "content:read content:write admin"
+	ExpiresInDays int    `json:"expires_in_days,omitempty"` // 0 = never
 }
 
 // ApiKeyResponse is the response when creating a key — includes the raw key ONCE.

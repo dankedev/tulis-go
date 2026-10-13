@@ -45,6 +45,7 @@ var toolScopes = map[string]string{
 	"tulis_switch_workspace":       ScopeRead,
 	"tulis_create_post":            ScopeWrite,
 	"tulis_update_post":            ScopeWrite,
+	"tulis_delete_post":            ScopeWrite,
 	"tulis_create_taxonomy":        ScopeWrite,
 	"tulis_update_taxonomy":        ScopeWrite,
 	"tulis_upload_media":           ScopeWrite,

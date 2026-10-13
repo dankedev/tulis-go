@@ -11,6 +11,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// lastUsedInterval throttles last_used_at writes.
+const lastUsedInterval = time.Minute
+
 type Service struct {
 	repo *Repository
 }
@@ -73,10 +76,13 @@ func (s *Service) Validate(ctx context.Context, rawKey string) (*ApiKey, error) 
 	if err != nil {
 		return nil, fmt.Errorf("invalid or expired API key")
 	}
-	// Update last used
+	// Record last use at most once a minute, touching only that column, so every request is
+	// not a write and a stale in-memory copy can never overwrite other fields.
 	now := time.Now()
-	k.LastUsedAt = &now
-	_ = s.repo.Update(ctx, k)
+	if k.LastUsedAt == nil || now.Sub(*k.LastUsedAt) >= lastUsedInterval {
+		_ = s.repo.TouchLastUsed(ctx, k.ID, now)
+		k.LastUsedAt = &now
+	}
 	return k, nil
 }
 

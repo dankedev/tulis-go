@@ -52,6 +52,11 @@ func (r *Repository) Update(ctx context.Context, k *ApiKey) error {
 	return r.db.WithContext(ctx).Save(k).Error
 }
 
+// TouchLastUsed updates only last_used_at.
+func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID, at time.Time) error {
+	return r.db.WithContext(ctx).Model(&ApiKey{}).Where("id = ?", id).UpdateColumn("last_used_at", at).Error
+}
+
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&ApiKey{}, "id = ?", id).Error
 }

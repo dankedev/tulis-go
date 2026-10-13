@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"math"
 	"strings"
 
 	"github.com/dankedev/tulis-go/domain/media"
@@ -46,8 +48,9 @@ type InputSchema struct {
 }
 
 type Property struct {
-	Type        string `json:"type"`
-	Description string `json:"description"`
+	Type        string    `json:"type"`
+	Description string    `json:"description"`
+	Items       *Property `json:"items,omitempty"` // required by JSON Schema for arrays
 }
 
 type ToolCallParams struct {
@@ -84,178 +87,190 @@ func NewService(postSvc post.PostService, wsSvc workspace.WorkspaceService, medi
 	}
 }
 
-func (s *service) GetTools() []Tool {
-	return []Tool{
-		{
-			Name:        "tulis_list_posts",
-			Description: "List posts in a Tulis CMS workspace. Supports filtering by status and post type.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"status":    {Type: "string", Description: "Filter by status: draft, published, scheduled, archived"},
-					"post_type": {Type: "string", Description: "Filter by post type: post, page, or custom post type slug"},
-					"search":    {Type: "string", Description: "Search posts by title or content"},
-					"sort":      {Type: "string", Description: "Sort order: 'order asc' (default, smallest order first), 'order desc' (largest order first), 'created_at desc', 'published_at desc', 'title asc', etc."},
-					"page":      {Type: "integer", Description: "Page number (default: 1)"},
-					"limit":     {Type: "integer", Description: "Results per page (default: 20, max: 50)"},
-				},
+var toolDefs = []Tool{
+	{
+		Name:        "tulis_list_posts",
+		Description: "List posts in a Tulis CMS workspace. Supports filtering by status and post type.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"status":    {Type: "string", Description: "Filter by status: draft, published, scheduled, archived"},
+				"post_type": {Type: "string", Description: "Filter by post type: post, page, or custom post type slug"},
+				"search":    {Type: "string", Description: "Search posts by title or content"},
+				"sort":      {Type: "string", Description: "Sort order: 'order asc' (default, smallest order first), 'order desc' (largest order first), 'created_at desc', 'published_at desc', 'title asc', etc."},
+				"page":      {Type: "integer", Description: "Page number (default: 1)"},
+				"limit":     {Type: "integer", Description: "Results per page (default: 20, max: 50)"},
 			},
 		},
-		{
-			Name:        "tulis_get_post",
-			Description: "Get a single post by ID or slug, including full content and metadata.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"id_or_slug": {Type: "string", Description: "Post ID (UUID) or slug"},
-				},
-				Required: []string{"id_or_slug"},
+	},
+	{
+		Name:        "tulis_get_post",
+		Description: "Get a single post by ID or slug, including full content and metadata.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"id_or_slug": {Type: "string", Description: "Post ID (UUID) or slug"},
+			},
+			Required: []string{"id_or_slug"},
+		},
+	},
+	{
+		Name:        "tulis_create_post",
+		Description: "Create a new post in Tulis CMS. Returns the created post with its ID.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"title":         {Type: "string", Description: "Post title (required)"},
+				"content":       {Type: "string", Description: "Post content in Markdown or HTML"},
+				"excerpt":       {Type: "string", Description: "Short excerpt or summary"},
+				"status":        {Type: "string", Description: "Post status: draft, published, scheduled, archived (default: draft)"},
+				"post_type":     {Type: "string", Description: "Post type: post, page (default: post)"},
+				"feature_image": {Type: "string", Description: "URL of the featured image"},
+				"seo_title":     {Type: "string", Description: "SEO title"},
+				"seo_desc":      {Type: "string", Description: "SEO meta description"},
+				"taxonomy_ids":  {Type: "array", Items: &Property{Type: "string"}, Description: "Array of taxonomy (category/tag) IDs to assign"},
+				"order":         {Type: "integer", Description: "Display order index (lower number appears first, default: 0)"},
+			},
+			Required: []string{"title"},
+		},
+	},
+	{
+		Name:        "tulis_update_post",
+		Description: "Update an existing post by ID. Only provided fields will be changed.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"id":            {Type: "string", Description: "Post ID (UUID) — required"},
+				"title":         {Type: "string", Description: "New title"},
+				"content":       {Type: "string", Description: "New content"},
+				"excerpt":       {Type: "string", Description: "New excerpt"},
+				"status":        {Type: "string", Description: "New status"},
+				"feature_image": {Type: "string", Description: "New featured image URL"},
+				"seo_title":     {Type: "string", Description: "New SEO title"},
+				"seo_desc":      {Type: "string", Description: "New SEO description"},
+				"order":         {Type: "integer", Description: "New display order index"},
+				"taxonomy_ids":  {Type: "array", Items: &Property{Type: "string"}, Description: "Replace the post's taxonomy (category/tag) IDs. Send an empty array to remove all."},
+			},
+			Required: []string{"id"},
+		},
+	},
+	{
+		Name:        "tulis_delete_post",
+		Description: "Delete a post by ID. This removes it from the workspace.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"id": {Type: "string", Description: "Post ID (UUID) — required"},
+			},
+			Required: []string{"id"},
+		},
+	},
+	{
+		Name:        "tulis_list_taxonomies",
+		Description: "List all categories and tags in the workspace.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"type": {Type: "string", Description: "Filter by type: category or tag"},
+				"sort": {Type: "string", Description: "Sort order: 'order asc' (default, smallest order first), 'order desc' (largest order first), 'name asc', 'name desc', 'created_at desc'"},
 			},
 		},
-		{
-			Name:        "tulis_create_post",
-			Description: "Create a new post in Tulis CMS. Returns the created post with its ID.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"title":         {Type: "string", Description: "Post title (required)"},
-					"content":       {Type: "string", Description: "Post content in Markdown or HTML"},
-					"excerpt":       {Type: "string", Description: "Short excerpt or summary"},
-					"status":        {Type: "string", Description: "Post status: draft, published, scheduled, archived (default: draft)"},
-					"post_type":     {Type: "string", Description: "Post type: post, page (default: post)"},
-					"feature_image": {Type: "string", Description: "URL of the featured image"},
-					"seo_title":     {Type: "string", Description: "SEO title"},
-					"seo_desc":      {Type: "string", Description: "SEO meta description"},
-					"taxonomy_ids":  {Type: "array", Description: "Array of taxonomy (category/tag) IDs to assign"},
-					"order":         {Type: "integer", Description: "Display order index (lower number appears first, default: 0)"},
-				},
-				Required: []string{"title"},
+	},
+	{
+		Name:        "tulis_create_taxonomy",
+		Description: "Create a new category or tag in the workspace.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"name":      {Type: "string", Description: "Taxonomy name (required)"},
+				"slug":      {Type: "string", Description: "URL slug (auto-generated if empty)"},
+				"type":      {Type: "string", Description: "category or tag (required)"},
+				"parent_id": {Type: "string", Description: "Parent category ID (for hierarchical categories)"},
+				"order":     {Type: "integer", Description: "Display order index (lower number appears first, default: 0)"},
+			},
+			Required: []string{"name", "type"},
+		},
+	},
+	{
+		Name:        "tulis_update_taxonomy",
+		Description: "Update an existing category or tag by ID.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"id":        {Type: "string", Description: "Taxonomy UUID (required)"},
+				"name":      {Type: "string", Description: "New taxonomy name"},
+				"slug":      {Type: "string", Description: "New URL slug"},
+				"parent_id": {Type: "string", Description: "New parent category ID"},
+				"order":     {Type: "integer", Description: "New display order index"},
+			},
+			Required: []string{"id"},
+		},
+	},
+	{
+		Name:        "tulis_get_taxonomy",
+		Description: "Get details of a single category or tag by its slug or ID, including child categories if any.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"slug_or_id": {Type: "string", Description: "Taxonomy slug or UUID (required)"},
+				"type":       {Type: "string", Description: "Optional taxonomy type: category or tag"},
+			},
+			Required: []string{"slug_or_id"},
+		},
+	},
+	{
+		Name:        "tulis_upload_media",
+		Description: "Upload an image or file to Tulis CMS from a URL. Downloads the remote file and stores it in the media library.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"file_url": {Type: "string", Description: "URL of the file to download and upload (required)"},
+				"alt_text": {Type: "string", Description: "Alt text for accessibility"},
+				"caption":  {Type: "string", Description: "Caption for the media item"},
+			},
+			Required: []string{"file_url"},
+		},
+	},
+	{
+		Name:        "tulis_list_workspaces",
+		Description: "List all workspaces accessible to the authenticated user.",
+		InputSchema: InputSchema{
+			Type:       "object",
+			Properties: map[string]Property{},
+		},
+	},
+	{
+		Name:        "tulis_get_current_workspace",
+		Description: "Get details or ID of the currently active workspace session in MCP.",
+		InputSchema: InputSchema{
+			Type:       "object",
+			Properties: map[string]Property{},
+		},
+	},
+	{
+		Name:        "tulis_switch_workspace",
+		Description: "Switch active workspace context for subsequent MCP API requests.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"workspace_id": {Type: "string", Description: "Workspace UUID to switch to (required)"},
+			},
+			Required: []string{"workspace_id"},
+		},
+	},
+	{
+		Name:        "tulis_list_workspace_members",
+		Description: "List members and their roles for the current active workspace or specified workspace.",
+		InputSchema: InputSchema{
+			Type: "object",
+			Properties: map[string]Property{
+				"workspace_id": {Type: "string", Description: "Optional workspace UUID. If omitted, uses active workspace context."},
 			},
 		},
-		{
-			Name:        "tulis_update_post",
-			Description: "Update an existing post by ID. Only provided fields will be changed.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"id":            {Type: "string", Description: "Post ID (UUID) — required"},
-					"title":         {Type: "string", Description: "New title"},
-					"content":       {Type: "string", Description: "New content"},
-					"excerpt":       {Type: "string", Description: "New excerpt"},
-					"status":        {Type: "string", Description: "New status"},
-					"feature_image": {Type: "string", Description: "New featured image URL"},
-					"seo_title":     {Type: "string", Description: "New SEO title"},
-					"seo_desc":      {Type: "string", Description: "New SEO description"},
-					"order":         {Type: "integer", Description: "New display order index"},
-				},
-				Required: []string{"id"},
-			},
-		},
-		{
-			Name:        "tulis_list_taxonomies",
-			Description: "List all categories and tags in the workspace.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"type": {Type: "string", Description: "Filter by type: category or tag"},
-					"sort": {Type: "string", Description: "Sort order: 'order asc' (default, smallest order first), 'order desc' (largest order first), 'name asc', 'name desc', 'created_at desc'"},
-				},
-			},
-		},
-		{
-			Name:        "tulis_create_taxonomy",
-			Description: "Create a new category or tag in the workspace.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"name":      {Type: "string", Description: "Taxonomy name (required)"},
-					"slug":      {Type: "string", Description: "URL slug (auto-generated if empty)"},
-					"type":      {Type: "string", Description: "category or tag (required)"},
-					"parent_id": {Type: "string", Description: "Parent category ID (for hierarchical categories)"},
-					"order":     {Type: "integer", Description: "Display order index (lower number appears first, default: 0)"},
-				},
-				Required: []string{"name", "type"},
-			},
-		},
-		{
-			Name:        "tulis_update_taxonomy",
-			Description: "Update an existing category or tag by ID.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"id":        {Type: "string", Description: "Taxonomy UUID (required)"},
-					"name":      {Type: "string", Description: "New taxonomy name"},
-					"slug":      {Type: "string", Description: "New URL slug"},
-					"parent_id": {Type: "string", Description: "New parent category ID"},
-					"order":     {Type: "integer", Description: "New display order index"},
-				},
-				Required: []string{"id"},
-			},
-		},
-		{
-			Name:        "tulis_get_taxonomy",
-			Description: "Get details of a single category or tag by its slug or ID, including child categories if any.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"slug_or_id": {Type: "string", Description: "Taxonomy slug or UUID (required)"},
-					"type":       {Type: "string", Description: "Optional taxonomy type: category or tag"},
-				},
-				Required: []string{"slug_or_id"},
-			},
-		},
-		{
-			Name:        "tulis_upload_media",
-			Description: "Upload an image or file to Tulis CMS from a URL. Downloads the remote file and stores it in the media library.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"file_url": {Type: "string", Description: "URL of the file to download and upload (required)"},
-					"alt_text": {Type: "string", Description: "Alt text for accessibility"},
-					"caption":  {Type: "string", Description: "Caption for the media item"},
-				},
-				Required: []string{"file_url"},
-			},
-		},
-		{
-			Name:        "tulis_list_workspaces",
-			Description: "List all workspaces accessible to the authenticated user.",
-			InputSchema: InputSchema{
-				Type:       "object",
-				Properties: map[string]Property{},
-			},
-		},
-		{
-			Name:        "tulis_get_current_workspace",
-			Description: "Get details or ID of the currently active workspace session in MCP.",
-			InputSchema: InputSchema{
-				Type:       "object",
-				Properties: map[string]Property{},
-			},
-		},
-		{
-			Name:        "tulis_switch_workspace",
-			Description: "Switch active workspace context for subsequent MCP API requests.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"workspace_id": {Type: "string", Description: "Workspace UUID to switch to (required)"},
-				},
-				Required: []string{"workspace_id"},
-			},
-		},
-		{
-			Name:        "tulis_list_workspace_members",
-			Description: "List members and their roles for the current active workspace or specified workspace.",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"workspace_id": {Type: "string", Description: "Optional workspace UUID. If omitted, uses active workspace context."},
-				},
-			},
-		},
-	}
+	},
 }
+
+func (s *service) GetTools() []Tool { return toolDefs }
 
 func (s *service) HandleRequest(ctx context.Context, req JSONRPCRequest, currentWorkspaceID uuid.UUID, userID uuid.UUID) JSONRPCResponse {
 	resp := JSONRPCResponse{
@@ -266,7 +281,7 @@ func (s *service) HandleRequest(ctx context.Context, req JSONRPCRequest, current
 	switch req.Method {
 	case "initialize":
 		resp.Result = map[string]any{
-			"protocolVersion": "2024-11-05",
+			"protocolVersion": negotiateProtocol(req.Params),
 			"capabilities": map[string]any{
 				"tools": map[string]any{},
 			},
@@ -329,11 +344,16 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 	}
 
 	var params map[string]any
-	if len(args) > 0 {
-		_ = json.Unmarshal(args, &params)
+	if len(args) > 0 && string(args) != "null" {
+		if err := json.Unmarshal(args, &params); err != nil {
+			return formatResultError(errors.New("arguments must be a JSON object"))
+		}
 	}
 	if params == nil {
 		params = make(map[string]any)
+	}
+	if err := validateArgs(name, params); err != nil {
+		return formatResultError(err)
 	}
 
 	switch name {
@@ -406,19 +426,9 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		seoTitle, _ := params["seo_title"].(string)
 		seoDesc, _ := params["seo_desc"].(string)
 
-		var taxStrings []string
-		if rawTax, ok := params["taxonomy_ids"].([]any); ok {
-			for _, t := range rawTax {
-				id := fmt.Sprint(t)
-				tid, err := uuid.Parse(id)
-				if err != nil {
-					return formatResultError(fmt.Errorf("invalid taxonomy id %q", id))
-				}
-				if _, err := s.taxonomyInWorkspace(ctx, tid, currentWorkspaceID); err != nil {
-					return formatResultError(fmt.Errorf("taxonomy %s: %w", id, err))
-				}
-				taxStrings = append(taxStrings, id)
-			}
+		taxStrings, err := s.parseTaxonomyIDs(ctx, params["taxonomy_ids"], currentWorkspaceID)
+		if err != nil {
+			return formatResultError(err)
 		}
 
 		var order int
@@ -457,7 +467,10 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		}
 
 		req := post.UpdatePostReq{}
-		if title, ok := params["title"].(string); ok && title != "" {
+		if title, ok := params["title"].(string); ok {
+			if strings.TrimSpace(title) == "" {
+				return formatResultError(errors.New("title cannot be empty"))
+			}
 			req.Title = &title
 		}
 		if content, ok := params["content"].(string); ok {
@@ -466,8 +479,21 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 		if excerpt, ok := params["excerpt"].(string); ok {
 			req.Excerpt = &excerpt
 		}
-		if status, ok := params["status"].(string); ok && status != "" {
+		if status, ok := params["status"].(string); ok {
+			if strings.TrimSpace(status) == "" {
+				return formatResultError(errors.New("status cannot be empty"))
+			}
 			req.Status = &status
+		}
+		if raw, ok := params["taxonomy_ids"]; ok {
+			ids, err := s.parseTaxonomyIDs(ctx, raw, currentWorkspaceID)
+			if err != nil {
+				return formatResultError(err)
+			}
+			if ids == nil {
+				ids = []string{}
+			}
+			req.TaxonomyIDs = &ids
 		}
 		if featureImg, ok := params["feature_image"].(string); ok {
 			req.FeatureImage = &featureImg
@@ -490,6 +516,20 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 			return formatResultError(err)
 		}
 		return formatResultJSON(p)
+
+	case "tulis_delete_post":
+		idStr, _ := params["id"].(string)
+		postUUID, err := uuid.Parse(idStr)
+		if err != nil {
+			return formatResultError(errors.New("valid post UUID id is required"))
+		}
+		if _, err := s.postInWorkspace(ctx, postUUID, currentWorkspaceID); err != nil {
+			return formatResultError(err)
+		}
+		if err := s.postSvc.DeletePost(ctx, postUUID); err != nil {
+			return formatResultError(err)
+		}
+		return formatResultJSON(map[string]any{"status": "success", "deleted_post_id": postUUID.String()})
 
 	case "tulis_list_taxonomies":
 		taxType, _ := params["type"].(string)
@@ -655,11 +695,29 @@ func formatResultJSON(v any) ToolResult {
 	}
 }
 
+// formatResultError reports err to the model. Validation and domain errors are passed through
+// so the model can correct itself; database/driver errors are logged and replaced by a generic
+// message so schema and query details never reach the client.
 func formatResultError(err error) ToolResult {
+	msg := err.Error()
+	if looksInternal(msg) {
+		log.Printf("[mcp] internal error: %v", err)
+		msg = "internal error while processing the request"
+	}
 	return ToolResult{
 		IsError: true,
-		Content: []ToolContent{{Type: "text", Text: "Error: " + err.Error()}},
+		Content: []ToolContent{{Type: "text", Text: "Error: " + msg}},
 	}
+}
+
+func looksInternal(msg string) bool {
+	m := strings.ToLower(msg)
+	for _, marker := range []string{"sql", "gorm", "database", "error 1", "constraint failed"} {
+		if strings.Contains(m, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // postInWorkspace loads a post by ID and hides it when it belongs to another workspace.
@@ -717,4 +775,95 @@ func (s *service) authorizeWorkspace(ctx context.Context, target, callerUserID u
 		}
 	}
 	return nil
+}
+
+var supportedProtocols = []string{"2025-06-18", "2024-11-05"}
+
+// negotiateProtocol echoes the client's protocol version when supported, else the newest one.
+func negotiateProtocol(params json.RawMessage) string {
+	var p struct {
+		ProtocolVersion string `json:"protocolVersion"`
+	}
+	_ = json.Unmarshal(params, &p)
+	for _, v := range supportedProtocols {
+		if v == p.ProtocolVersion {
+			return v
+		}
+	}
+	return supportedProtocols[0]
+}
+
+// validateArgs checks provided arguments against the tool's input schema so a wrong type
+// (e.g. limit: "10" or taxonomy_ids: "abc") is reported instead of silently ignored.
+func validateArgs(tool string, params map[string]any) error {
+	var schema *InputSchema
+	for _, t := range toolDefs {
+		if t.Name == tool {
+			schema = &t.InputSchema
+			break
+		}
+	}
+	if schema == nil {
+		return nil // unknown tool is reported by the caller
+	}
+	for _, req := range schema.Required {
+		if v, ok := params[req]; !ok || v == nil {
+			return fmt.Errorf("%s is required", req)
+		}
+	}
+	for key, val := range params {
+		prop, known := schema.Properties[key]
+		if !known || val == nil {
+			continue
+		}
+		if err := checkType(key, prop, val); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkType(name string, prop Property, val any) error {
+	switch prop.Type {
+	case "string":
+		if _, ok := val.(string); !ok {
+			return fmt.Errorf("%s must be a string", name)
+		}
+	case "integer":
+		f, ok := val.(float64)
+		if !ok || f != math.Trunc(f) {
+			return fmt.Errorf("%s must be an integer", name)
+		}
+	case "array":
+		arr, ok := val.([]any)
+		if !ok {
+			return fmt.Errorf("%s must be an array", name)
+		}
+		if prop.Items != nil {
+			for i, item := range arr {
+				if err := checkType(fmt.Sprintf("%s[%d]", name, i), *prop.Items, item); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// parseTaxonomyIDs validates taxonomy ids and that each one belongs to the workspace.
+func (s *service) parseTaxonomyIDs(ctx context.Context, raw any, workspaceID uuid.UUID) ([]string, error) {
+	arr, _ := raw.([]any)
+	var ids []string
+	for _, item := range arr {
+		id, _ := item.(string)
+		tid, err := uuid.Parse(id)
+		if err != nil {
+			return nil, fmt.Errorf("invalid taxonomy id %q", id)
+		}
+		if _, err := s.taxonomyInWorkspace(ctx, tid, workspaceID); err != nil {
+			return nil, fmt.Errorf("taxonomy %s: %w", id, err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }

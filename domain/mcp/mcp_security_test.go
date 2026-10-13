@@ -197,3 +197,65 @@ func TestMCPCrossWorkspaceIsolation(t *testing.T) {
 		t.Fatalf("list_workspaces leaked or failed: %q", firstText(res))
 	}
 }
+
+func TestMCPDeletePostAndTaxonomyUpdate(t *testing.T) {
+	db, svc, _, wsA, _ := setupTestMCP(t)
+
+	wsB := uuid.New()
+	postB := &post.Post{ID: uuid.New(), WorkspaceID: wsB, Title: "other", Slug: "other", Status: "published", PostType: "post"}
+	if err := db.Create(postB).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	writer := mcp.WithPrincipal(context.Background(), mcp.Principal{WorkspaceID: wsA, Scopes: "content:write"})
+	reader := mcp.WithPrincipal(context.Background(), mcp.Principal{WorkspaceID: wsA, Scopes: "content:read"})
+
+	created := callTool(t, svc, writer, wsA, uuid.Nil, "tulis_create_post", map[string]any{"title": "to delete"})
+	var p post.Post
+	if err := json.Unmarshal([]byte(firstText(created)), &p); err != nil || p.ID == uuid.Nil {
+		t.Fatalf("create failed: %q", firstText(created))
+	}
+
+	if res := callTool(t, svc, reader, wsA, uuid.Nil, "tulis_delete_post", map[string]any{"id": p.ID.String()}); !res.IsError {
+		t.Fatal("read-only key must not delete")
+	}
+	if res := callTool(t, svc, writer, wsA, uuid.Nil, "tulis_delete_post", map[string]any{"id": postB.ID.String()}); !res.IsError {
+		t.Fatal("must not delete a post from another workspace")
+	}
+	if err := db.First(&post.Post{}, "id = ?", postB.ID).Error; err != nil {
+		t.Fatalf("workspace B post must survive: %v", err)
+	}
+	if res := callTool(t, svc, writer, wsA, uuid.Nil, "tulis_delete_post", map[string]any{"id": p.ID.String()}); res.IsError {
+		t.Fatalf("delete failed: %s", firstText(res))
+	}
+	if res := callTool(t, svc, writer, wsA, uuid.Nil, "tulis_get_post", map[string]any{"id_or_slug": p.ID.String()}); !res.IsError {
+		t.Fatal("deleted post must be gone")
+	}
+}
+
+func TestMCPUpdatePostTaxonomyIDsAndEmptyFields(t *testing.T) {
+	_, svc, _, wsA, _ := setupTestMCP(t)
+	ctx := mcp.WithPrincipal(context.Background(), mcp.Principal{WorkspaceID: wsA, Scopes: "content:write"})
+
+	tax := callTool(t, svc, ctx, wsA, uuid.Nil, "tulis_create_taxonomy", map[string]any{"name": "Go", "type": "tag"})
+	var tx post.Taxonomy
+	if err := json.Unmarshal([]byte(firstText(tax)), &tx); err != nil {
+		t.Fatal(err)
+	}
+	created := callTool(t, svc, ctx, wsA, uuid.Nil, "tulis_create_post", map[string]any{"title": "p", "taxonomy_ids": []any{tx.ID.String()}})
+	var p post.Post
+	_ = json.Unmarshal([]byte(firstText(created)), &p)
+
+	if res := callTool(t, svc, ctx, wsA, uuid.Nil, "tulis_update_post", map[string]any{"id": p.ID.String(), "title": "  "}); !res.IsError {
+		t.Fatal("empty title must be rejected, not ignored")
+	}
+	if res := callTool(t, svc, ctx, wsA, uuid.Nil, "tulis_update_post", map[string]any{"id": p.ID.String(), "taxonomy_ids": []any{}}); res.IsError {
+		t.Fatalf("clearing taxonomies failed: %s", firstText(res))
+	}
+	got := callTool(t, svc, ctx, wsA, uuid.Nil, "tulis_get_post", map[string]any{"id_or_slug": p.ID.String()})
+	var after post.Post
+	_ = json.Unmarshal([]byte(firstText(got)), &after)
+	if len(after.Taxonomies) != 0 {
+		t.Fatalf("expected taxonomies cleared, got %d", len(after.Taxonomies))
+	}
+}

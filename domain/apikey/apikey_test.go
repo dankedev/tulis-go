@@ -91,3 +91,27 @@ func TestApiKeyService_Delete(t *testing.T) {
 	_, err = svc.Validate(ctx, resp.RawKey)
 	assert.Error(t, err)
 }
+
+func TestApiKeyService_ValidateThrottlesLastUsed(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(NewRepository(db))
+	ctx := context.Background()
+
+	resp, err := svc.Generate(ctx, uuid.New(), CreateApiKeyReq{Name: "k", Scopes: "content:read"})
+	assert.NoError(t, err)
+
+	_, err = svc.Validate(ctx, resp.RawKey)
+	assert.NoError(t, err)
+	var first ApiKey
+	assert.NoError(t, db.First(&first, "id = ?", resp.ID).Error)
+	assert.NotNil(t, first.LastUsedAt)
+
+	// A second call inside the interval must not write again, and other columns stay intact.
+	_, err = svc.Validate(ctx, resp.RawKey)
+	assert.NoError(t, err)
+	var second ApiKey
+	assert.NoError(t, db.First(&second, "id = ?", resp.ID).Error)
+	assert.True(t, first.LastUsedAt.Equal(*second.LastUsedAt))
+	assert.Equal(t, "content:read", second.Scopes)
+	assert.True(t, second.IsActive)
+}

@@ -501,6 +501,3 @@ func TestMCPSSEEndpointEvent(t *testing.T) {
 		t.Errorf("expected 'event: endpoint\\n', got %q", line)
 	}
 }
-
-
-

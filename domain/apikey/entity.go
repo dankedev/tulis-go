@@ -15,8 +15,8 @@ type ApiKey struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	WorkspaceID uuid.UUID      `gorm:"type:char(36);not null;index" json:"workspace_id"`
 	Name        string         `gorm:"type:varchar(100);not null" json:"name"`
-	KeyPrefix   string         `gorm:"type:varchar(12);not null" json:"key_prefix"` // "tulis_sk_" prefix visible
-	KeyHash     string         `gorm:"type:varchar(255);not null" json:"-"`         // bcrypt hash, never exposed
+	KeyPrefix   string         `gorm:"type:varchar(12);not null" json:"key_prefix"`                     // "tulis_sk_" prefix visible
+	KeyHash     string         `gorm:"type:varchar(255);not null" json:"-"`                             // hex SHA-256 of the raw key (high-entropy random token, so no salt/bcrypt needed), never exposed
 	Scopes      string         `gorm:"type:varchar(255);not null;default:'content:read'" json:"scopes"` // space-delimited: "content:read content:write admin"
 	LastUsedAt  *time.Time     `json:"last_used_at,omitempty"`
 	ExpiresAt   *time.Time     `json:"expires_at,omitempty"`
