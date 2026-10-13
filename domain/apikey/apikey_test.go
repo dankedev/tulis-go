@@ -115,3 +115,18 @@ func TestApiKeyService_ValidateThrottlesLastUsed(t *testing.T) {
 	assert.Equal(t, "content:read", second.Scopes)
 	assert.True(t, second.IsActive)
 }
+
+func TestApiKeyService_RecordsCreator(t *testing.T) {
+	db := setupTestDB(t)
+	svc := NewService(NewRepository(db))
+	ctx := context.Background()
+	creator := uuid.New()
+
+	resp, err := svc.Generate(ctx, uuid.New(), CreateApiKeyReq{Name: "k", CreatedBy: creator})
+	assert.NoError(t, err)
+	k, err := svc.Validate(ctx, resp.RawKey)
+	assert.NoError(t, err)
+	if assert.NotNil(t, k.CreatedBy) {
+		assert.Equal(t, creator, *k.CreatedBy)
+	}
+}

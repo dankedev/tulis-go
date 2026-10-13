@@ -21,6 +21,7 @@ type ApiKey struct {
 	LastUsedAt  *time.Time     `json:"last_used_at,omitempty"`
 	ExpiresAt   *time.Time     `json:"expires_at,omitempty"`
 	IsActive    bool           `gorm:"default:true;not null" json:"is_active"`
+	CreatedBy   *uuid.UUID     `gorm:"type:char(36)" json:"created_by,omitempty"` // user who issued the key; MCP writes are attributed to them
 }
 
 func (k *ApiKey) BeforeCreate(tx *gorm.DB) error {

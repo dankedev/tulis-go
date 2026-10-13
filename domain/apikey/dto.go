@@ -7,6 +7,8 @@ type CreateApiKeyReq struct {
 	Name          string `json:"name"`
 	Scopes        string `json:"scopes"`                    // "content:read content:write admin"
 	ExpiresInDays int    `json:"expires_in_days,omitempty"` // 0 = never
+
+	CreatedBy uuid.UUID `json:"-"` // set by the handler from the authenticated user
 }
 
 // ApiKeyResponse is the response when creating a key — includes the raw key ONCE.

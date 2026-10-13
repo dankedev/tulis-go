@@ -19,7 +19,8 @@ const (
 // trusted in-process caller (e.g. cmd/mcp direct mode or tests) and is not restricted.
 type Principal struct {
 	WorkspaceID uuid.UUID
-	Scopes      string // space-delimited, e.g. "content:read content:write"
+	Scopes      string    // space-delimited, e.g. "content:read content:write"
+	UserID      uuid.UUID // user who issued the key (zero if unknown); used as post author
 }
 
 type principalKey struct{}

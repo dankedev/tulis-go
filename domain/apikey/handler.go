@@ -1,6 +1,7 @@
 package apikey
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/dankedev/tulis-go/utils/response"
@@ -42,6 +43,10 @@ func (h *Handler) Generate(c *fiber.Ctx) error {
 	}
 	if req.Name == "" {
 		return response.Error(c, "BAD_REQUEST", "Name is required", nil)
+	}
+
+	if uid, err := uuid.Parse(fmt.Sprint(c.Locals("user_id"))); err == nil {
+		req.CreatedBy = uid
 	}
 
 	result, err := h.svc.Generate(c.Context(), workspaceID, req)

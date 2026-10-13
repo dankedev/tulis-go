@@ -259,3 +259,86 @@ func TestMCPUpdatePostTaxonomyIDsAndEmptyFields(t *testing.T) {
 		t.Fatalf("expected taxonomies cleared, got %d", len(after.Taxonomies))
 	}
 }
+
+func TestMCPPostAuthoredByKeyIssuer(t *testing.T) {
+	_, svc, _, wsA, owner := setupTestMCP(t)
+
+	issuer := uuid.New() // never added to the workspace
+	ctx := mcp.WithPrincipal(context.Background(), mcp.Principal{WorkspaceID: wsA, Scopes: "content:write", UserID: owner})
+	res := callTool(t, svc, ctx, wsA, uuid.Nil, "tulis_create_post", map[string]any{"title": "authored"})
+	var p post.Post
+	if err := json.Unmarshal([]byte(firstText(res)), &p); err != nil {
+		t.Fatalf("create failed: %q", firstText(res))
+	}
+	if p.AuthorID != owner {
+		t.Fatalf("expected author %s, got %s", owner, p.AuthorID)
+	}
+
+	// An issuer who is not (or no longer) a member must not become the author.
+	ctx = mcp.WithPrincipal(context.Background(), mcp.Principal{WorkspaceID: wsA, Scopes: "content:write", UserID: issuer})
+	res = callTool(t, svc, ctx, wsA, uuid.Nil, "tulis_create_post", map[string]any{"title": "fallback"})
+	var q post.Post
+	_ = json.Unmarshal([]byte(firstText(res)), &q)
+	if q.AuthorID == issuer || q.AuthorID == uuid.Nil {
+		t.Fatalf("non-member issuer must not be author, got %s", q.AuthorID)
+	}
+}
+
+func TestMCPStreamableHTTPSessions(t *testing.T) {
+	_, _, handler, wsID, _ := setupTestMCP(t)
+
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("workspace_id", wsID.String())
+		c.Locals("api_key_id", c.Get("X-Test-Key", "key-1"))
+		c.Locals("api_key_scopes", "content:read")
+		c.Locals("auth_method", "api_key")
+		return c.Next()
+	})
+	app.Post("/mcp", handler.HandlePost)
+	app.Delete("/mcp", handler.HandleDelete)
+
+	do := func(method, body, sid, key string) *http.Response {
+		req := httptest.NewRequest(method, "/mcp", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		if sid != "" {
+			req.Header.Set("Mcp-Session-Id", sid)
+		}
+		if key != "" {
+			req.Header.Set("X-Test-Key", key)
+		}
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+	const list = `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
+
+	init := do(http.MethodPost, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}`, "", "")
+	sid := init.Header.Get("Mcp-Session-Id")
+	if init.StatusCode != http.StatusOK || sid == "" {
+		t.Fatalf("initialize must return a session id, status=%d sid=%q", init.StatusCode, sid)
+	}
+	if r := do(http.MethodPost, list, sid, ""); r.StatusCode != http.StatusOK {
+		t.Fatalf("valid session rejected: %d", r.StatusCode)
+	}
+	if r := do(http.MethodPost, list, "", ""); r.StatusCode != http.StatusOK {
+		t.Fatalf("stateless request must still work: %d", r.StatusCode)
+	}
+	if r := do(http.MethodPost, list, sid, "other-key"); r.StatusCode != http.StatusNotFound {
+		t.Fatalf("another key must not reuse the session: %d", r.StatusCode)
+	}
+	if r := do(http.MethodPost, list, uuid.NewString(), ""); r.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown session must be 404: %d", r.StatusCode)
+	}
+	if r := do(http.MethodDelete, "", sid, "other-key"); r.StatusCode != http.StatusNotFound {
+		t.Fatalf("another key must not delete the session: %d", r.StatusCode)
+	}
+	if r := do(http.MethodDelete, "", sid, ""); r.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete failed: %d", r.StatusCode)
+	}
+	if r := do(http.MethodPost, list, sid, ""); r.StatusCode != http.StatusNotFound {
+		t.Fatalf("terminated session must be 404: %d", r.StatusCode)
+	}
+}

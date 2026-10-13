@@ -49,6 +49,10 @@ func (s *Service) Generate(ctx context.Context, workspaceID uuid.UUID, req Creat
 		ExpiresAt:   expiresAt,
 		IsActive:    true,
 	}
+	if req.CreatedBy != uuid.Nil {
+		by := req.CreatedBy
+		k.CreatedBy = &by
+	}
 
 	if err := s.repo.Create(ctx, k); err != nil {
 		return nil, err

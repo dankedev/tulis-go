@@ -61,9 +61,10 @@ func SetupApp() *fiber.App {
 
 	// Add CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: config.AppConfig.CORSOrigins,
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-Workspace-ID",
-		AllowMethods: "GET, POST, HEAD, PUT, DELETE, PATCH, OPTIONS",
+		AllowOrigins:  config.AppConfig.CORSOrigins,
+		AllowHeaders:  "Origin, Content-Type, Accept, Authorization, X-Workspace-ID, X-API-Key, Mcp-Session-Id",
+		ExposeHeaders: "Mcp-Session-Id",
+		AllowMethods:  "GET, POST, HEAD, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
 	// Health check endpoint
@@ -220,7 +221,7 @@ func SetupApp() *fiber.App {
 
 		// Register tenant-scoped routes using domain specific files in routes/
 		routes.RegisterWorkspaceMemberRoutes(tenantGroup, wsHandler)
-		
+
 		// Create a restricted group for content that requires at least 'author' role (blocks 'subscriber')
 		contentGroup := middleware.WithMiddleware(tenantGroup, middleware.RequireRole(wsSvc, "author"))
 

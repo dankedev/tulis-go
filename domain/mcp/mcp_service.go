@@ -335,7 +335,14 @@ func (s *service) executeTool(ctx context.Context, name string, args json.RawMes
 
 	callerUserID := userID
 
-	// Auto-resolve user ID (used as post author) from the active workspace's members if not set
+	// Attribute writes to the user who issued the key, provided they are still a workspace member.
+	if p, ok := principalFrom(ctx); ok && p.UserID != uuid.Nil {
+		if _, err := s.wsSvc.GetMember(ctx, currentWorkspaceID, p.UserID); err == nil {
+			userID = p.UserID
+		}
+	}
+
+	// Otherwise fall back to the active workspace's first member as post author
 	if userID == uuid.Nil {
 		members, err := s.wsSvc.ListMembers(ctx, currentWorkspaceID)
 		if err == nil && len(members) > 0 {

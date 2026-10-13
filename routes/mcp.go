@@ -32,12 +32,14 @@ func RegisterMCPRoutes(app fiber.Router, handler *mcp.Handler, apiKeySvc *apikey
 
 	// Root /mcp endpoints (compatible with standard MCP client URLs like https://api.tulis.org/mcp)
 	mcpGroup.Post("/mcp", rateLimit, handler.HandlePost)
+	mcpGroup.Delete("/mcp", rateLimit, handler.HandleDelete)
 	mcpGroup.Get("/mcp", rateLimit, handler.HandleSSE)
 	mcpGroup.Get("/mcp/sse", rateLimit, handler.HandleSSE)
 	mcpGroup.Post("/mcp/messages", rateLimit, handler.HandleSSEMessages)
 
 	// Subpath /api/mcp aliases
 	mcpGroup.Post("/api/mcp", rateLimit, handler.HandlePost)
+	mcpGroup.Delete("/api/mcp", rateLimit, handler.HandleDelete)
 	mcpGroup.Get("/api/mcp", rateLimit, handler.HandleSSE)
 	mcpGroup.Get("/api/mcp/sse", rateLimit, handler.HandleSSE)
 	mcpGroup.Post("/api/mcp/messages", rateLimit, handler.HandleSSEMessages)

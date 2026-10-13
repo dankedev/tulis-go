@@ -56,6 +56,9 @@ func ApiKeyAuth(apiKeySvc *apikey.Service) fiber.Handler {
 		c.Locals("workspace_id", k.WorkspaceID.String())
 		c.Locals("api_key_id", k.ID.String())
 		c.Locals("api_key_scopes", k.Scopes)
+		if k.CreatedBy != nil {
+			c.Locals("api_key_user_id", k.CreatedBy.String())
+		}
 		c.Locals("auth_method", "api_key")
 
 		return c.Next()
